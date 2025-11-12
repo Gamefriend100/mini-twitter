@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mini Twitter</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="container">
+    <div id="auth" class="card">
+      <h2>Mini Twitter</h2>
+      <input id="username" placeholder="Usuario" />
+      <input id="password" type="password" placeholder="Contraseña" />
+      <div class="row">
+        <button id="loginBtn">Iniciar sesión</button>
+        <button id="registerBtn">Crear cuenta</button>
+      </div>
+      <p id="status" class="status"></p>
+    </div>
+
+    <div id="app" style="display:none;">
+      <div class="topbar">
+        <div>🐦 MiniTwitter</div>
+        <div>
+          <span id="currentUser"></span>
+          <button id="logoutBtn">Salir</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <textarea id="content" placeholder="¿Qué está pasando?"></textarea>
+        <div class="row">
+          <button id="postBtn">Publicar</button>
+        </div>
+      </div>
+
+      <div id="feed"></div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/client.js"></script>
+</body>
+</html>
