@@ -6,26 +6,38 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>X — MiniTwitter</title>
   <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 
 <body class="x-body">
-  <!-- CONTENEDOR GENERAL -->
+
   <div class="x-container">
 
+```
 <!-- LOGIN / REGISTER -->
-<div id="auth" class="x-auth-card">
-  <div class="x-logo">𝕏</div>
+<section id="auth-section" class="x-auth-section">
+  <!-- LOGIN -->
+  <div id="login-view" class="x-auth-card">
+    <div class="x-logo">𝕏</div>
+    <h2 class="x-title">Inicia sesión en X</h2>
+    <input id="username" class="x-input" placeholder="Usuario" />
+    <input id="password" type="password" class="x-input" placeholder="Contraseña" />
+    <button id="loginBtn" class="x-btn x-primary">Iniciar sesión</button>
+    <p class="x-toggle-link" id="show-register">¿No tienes cuenta? Regístrate</p>
+    <p id="status" class="x-status"></p>
+  </div>
 
-  <h2 class="x-title">Inicia sesión en X</h2>
-
-  <input id="username" class="x-input" placeholder="Usuario" />
-  <input id="password" type="password" class="x-input" placeholder="Contraseña" />
-
-  <button id="loginBtn" class="x-btn x-primary">Iniciar sesión</button>
-  <button id="registerBtn" class="x-btn x-outline">Crear cuenta</button>
-
-  <p id="status" class="x-status"></p>
-</div>
+  <!-- REGISTER -->
+  <div id="register-view" class="x-auth-card" style="display:none;">
+    <div class="x-logo">𝕏</div>
+    <h2 class="x-title">Crea tu cuenta</h2>
+    <input id="register-displayname" class="x-input" placeholder="Nombre para mostrar" />
+    <input id="register-username" class="x-input" placeholder="Nombre de usuario" />
+    <input id="register-password" type="password" class="x-input" placeholder="Contraseña" />
+    <button id="registerBtn" class="x-btn x-primary">Registrarse</button>
+    <p class="x-toggle-link" id="show-login">¿Ya tienes cuenta? Inicia sesión</p>
+  </div>
+</section>
 
 <!-- APP PRINCIPAL -->
 <div id="app" class="x-app" style="display:none;">
@@ -50,7 +62,20 @@
   <!-- FEED -->
   <div id="feed" class="x-feed"></div>
 
+  <!-- PERFIL (opcional, por ahora oculto) -->
+  <section id="profile-view" class="x-profile-view" style="display:none;">
+    <div class="x-profile-header">
+      <img src="https://via.placeholder.com/150" alt="Avatar" class="x-profile-avatar" id="profile-avatar">
+      <div class="x-profile-info">
+        <div class="x-display-name" id="profile-displayname"></div>
+        <div class="x-username" id="profile-username"></div>
+      </div>
+    </div>
+    <div id="profile-posts-container"></div>
+  </section>
+
 </div>
+```
 
   </div>
 
@@ -60,4 +85,3 @@
 
 </body>
 </html>
-
