@@ -1,14 +1,57 @@
-const { Router } = require('express');
-const router = Router();
+import { Delete } from "@mui/icons-material";
+import { IconButton } from "@mui/material";
+import { UseBranchesContext } from "../../../../context/safety/kit/branches/BranchesContext";
+import { UseAppContext } from "../../../../context/AppContext";
+import { NotificationStructure } from "../../../shared";
 
-const {
-        deleteBranchSupply,
-} = require('../../../controllers/safety/branch/branch-supply.controller');
+const ItemSupply = ({ supply }) => {
 
-const {
-  validateJWT
-} = require('../../../middlewares/validate-jwt');
+  const { setModalRequest, deleteBranchSupply } = UseBranchesContext();
+  const { hasRole } = UseAppContext();
 
-router.delete('/:id', [validateJWT], deleteBranchSupply);
+  const showConfirmation = () => {
 
-module.exports = router;
+    setModalRequest({
+      show: true,
+      children: (
+        <NotificationStructure
+          title="Eliminar Insumo"
+          action={() => deleteBranchSupply(supply.id)}
+          onCancel={() => setModalRequest({ show: false })}
+        >
+          <p>Estas apunto de eliminar el siguiente insumo:</p>
+
+          <p className="font-semibold">
+            {supply.supply?.name}
+          </p>
+
+          <p>¿Deseas continuar con esta acción?</p>
+
+        </NotificationStructure>
+      )
+    });
+
+  };
+
+  return (
+    <div className="flex justify-between py-2 px-3 mb-2 border shadow-md">
+
+      <div>
+        <p>{supply.supply?.name}</p>
+
+        <p className="text-xs font-semibold">
+          {supply.supply?.category?.name}
+        </p>
+      </div>
+
+      {hasRole(["SUCURSAL"]) && (
+        <IconButton onClick={showConfirmation}>
+          <Delete fontSize="small" sx={{ "&:hover": { color: "#ef4444" } }} />
+        </IconButton>
+      )}
+
+    </div>
+  );
+};
+
+export default ItemSupply;
