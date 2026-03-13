@@ -1,57 +1,288 @@
-import { Delete } from "@mui/icons-material";
-import { IconButton } from "@mui/material";
-import { UseBranchesContext } from "../../../../context/safety/kit/branches/BranchesContext";
+import CancellationDetails from "../../../../views/safety/kit/requests/CancellationDetails";
+import Cancellation from "../../../../views/safety/kit/requests/Cancellation";
+import { UseRequestContext } from "../../../../context/safety/kit/request/RequestContext";
 import { UseAppContext } from "../../../../context/AppContext";
-import { NotificationStructure } from "../../../shared";
+import { Cancel, Edit, Send, Visibility, Check, CheckCircle, TaskAlt } from "@mui/icons-material";
+import { notifyError, notifySuccess } from "../../../shared";
+import { ListItemIcon, MenuItem } from "@mui/material";
+import { useNavigate } from "react-router-dom";
+import { appApi } from "../../../../api";
 
-const ItemSupply = ({ supply }) => {
+const Actions = ({ closeMenu, row }) => {
 
-  const { setModalRequest, deleteBranchSupply } = UseBranchesContext();
-  const { hasRole } = UseAppContext();
+  const { setSelectedRequest, setRequestList, setModalRequest } = UseRequestContext();
+  const { authUserToken, hasRole } = UseAppContext();
+  const navigate = useNavigate();
 
-  const showConfirmation = () => {
+  const statusId = row.original.statusId;
+
+  const isCreated = statusId === 1;
+  const isSent = statusId === 4;
+  const isAccepted = statusId === 2;
+  const isRejected = statusId === 5;
+  const isConfirmed = statusId === 7;
+
+  const isAdmin = hasRole(["ADMIN"]);
+  const isSucursal = hasRole(["SUCURSAL"]);
+  const isTH = hasRole(["TALENTO HUMANO"]);
+
+  const updateList = (data) => {
+    setRequestList(prev =>
+      prev.map(req =>
+        req.id === row.original.id
+          ? data.updatedRequest
+          : req
+      )
+    );
+  };
+
+  const handleRedirect = () => {
+    closeMenu();
+    setSelectedRequest(row.original);
+    navigate("/seguridad/botiquin/solicitudes/detalles");
+  };
+
+  const handleViewSupplies = () => {
+    closeMenu();
+    setSelectedRequest({
+    ...row.original, viewOnly: true });
+    navigate("/seguridad/botiquin/solicitudes/detalles");
+  };
+
+  const handleSend = async () => {
+
+    closeMenu();
+
+    try {
+
+      const { data } = await appApi.post(
+        `/intranet/supplies/request/status/${row.original.id}`,
+        { statusId: 4 },
+        {
+          headers: { Authorization: `Bearer ${authUserToken}` }
+        }
+      );
+
+      updateList(data);
+      notifySuccess(data.msg);
+
+    } catch (error) {
+
+      notifyError(error?.response?.data?.msg);
+
+    }
+
+  };
+
+  const handleCancel = async () => {
+
+    closeMenu();
+
+    try {
+
+      const { data } = await appApi.post(
+        `/intranet/supplies/request/status/${row.original.id}`,
+        { statusId: 3 },
+        {
+          headers: { Authorization: `Bearer ${authUserToken}` }
+        }
+      );
+
+      updateList(data);
+      notifySuccess(data.msg);
+
+    } catch (error) {
+
+      notifyError(error?.response?.data?.msg);
+
+    }
+
+  };
+
+  const handleAccept = async () => {
+
+    closeMenu();
+
+    try {
+
+      const { data } = await appApi.post(
+        `/intranet/supplies/request/status/${row.original.id}`,
+        { statusId: 2 },
+        {
+          headers: { Authorization: `Bearer ${authUserToken}` }
+        }
+      );
+
+      updateList(data);
+      notifySuccess(data.msg);
+
+    } catch (error) {
+
+      notifyError(error?.response?.data?.msg);
+
+    }
+
+  };
+
+  const handleConfirm = async () => {
+
+    closeMenu();
+
+    try {
+
+      const { data } = await appApi.post(
+        `/intranet/supplies/request/status/${row.original.id}`,
+        { statusId: 7 },
+        {
+          headers: { Authorization: `Bearer ${authUserToken}` }
+        }
+      );
+
+      updateList(data);
+      notifySuccess(data.msg);
+
+    } catch (error) {
+
+      notifyError(error?.response?.data?.msg);
+
+    }
+
+  };
+
+  const handleFinish = async () => {
+
+    closeMenu();
+
+    try {
+
+      const { data } = await appApi.post(
+        `/intranet/supplies/request/status/${row.original.id}`,
+        { statusId: 6 },
+        {
+          headers: { Authorization: `Bearer ${authUserToken}` }
+        }
+      );
+
+      updateList(data);
+      notifySuccess(data.msg);
+
+    } catch (error) {
+
+      notifyError(error?.response?.data?.msg);
+
+    }
+
+  };
+
+  const showRejectModal = () => {
+
+    closeMenu();
+
+    setSelectedRequest(row.original);
 
     setModalRequest({
       show: true,
-      children: (
-        <NotificationStructure
-          title="Eliminar Insumo"
-          action={() => deleteBranchSupply(supply.id)}
-          onCancel={() => setModalRequest({ show: false })}
-        >
-          <p>Estas apunto de eliminar el siguiente insumo:</p>
+      children: <Cancellation />
+    });
 
-          <p className="font-semibold">
-            {supply.supply?.name}
-          </p>
+  };
 
-          <p>¿Deseas continuar con esta acción?</p>
+  const showRejectionDetails = () => {
 
-        </NotificationStructure>
-      )
+    closeMenu();
+
+    setSelectedRequest(row.original);
+
+    setModalRequest({
+      show: true,
+      children: <CancellationDetails />
     });
 
   };
 
   return (
-    <div className="flex justify-between py-2 px-3 mb-2 border shadow-md">
+    <>
 
-      <div>
-        <p>{supply.supply?.name}</p>
-
-        <p className="text-xs font-semibold">
-          {supply.supply?.category?.name}
-        </p>
-      </div>
-
-      {hasRole(["SUCURSAL"]) && (
-        <IconButton onClick={showConfirmation}>
-          <Delete fontSize="small" sx={{ "&:hover": { color: "#ef4444" } }} />
-        </IconButton>
+      {isRejected && (
+        <MenuItem onClick={showRejectionDetails}>
+          <ListItemIcon>
+            <Visibility />
+          </ListItemIcon>
+          Detalles
+        </MenuItem>
       )}
 
-    </div>
+      {isAdmin && (
+        <>
+          <MenuItem onClick={handleRedirect}><Edit fontSize="small" /> Editar</MenuItem>
+          <MenuItem onClick={handleSend}><Send fontSize="small" /> Enviar</MenuItem>
+          <MenuItem onClick={handleCancel}><Cancel fontSize="small" /> Cancelar</MenuItem>
+          <MenuItem onClick={handleAccept}><Check fontSize="small" /> Aceptar</MenuItem>
+          <MenuItem onClick={showRejectModal}><Cancel fontSize="small" /> Rechazar</MenuItem>
+          <MenuItem onClick={handleConfirm}><CheckCircle fontSize="small" /> Confirmar</MenuItem>
+        </>
+      )}
+
+      {isSucursal && isCreated && (
+        <>
+          <MenuItem onClick={handleRedirect}>
+            <ListItemIcon><Edit /></ListItemIcon>
+            Editar
+          </MenuItem>
+
+          <MenuItem onClick={handleSend}>
+            <ListItemIcon><Send /></ListItemIcon>
+            Enviar
+          </MenuItem>
+        </>
+      )}
+
+      {isSucursal && isSent && (
+        <MenuItem onClick={handleCancel}>
+          <ListItemIcon><Cancel /></ListItemIcon>
+          Cancelar
+        </MenuItem>
+      )}
+
+      {isSucursal && isAccepted && (
+        <MenuItem onClick={handleConfirm}>
+          <ListItemIcon><CheckCircle /></ListItemIcon>
+          Confirmar
+        </MenuItem>
+      )}
+
+      {(isTH || isAdmin) && isSent && (
+        <>
+          <MenuItem onClick={handleViewSupplies}>
+            <ListItemIcon>
+              <Visibility />
+            </ListItemIcon>
+            Ver insumos
+          </MenuItem>
+
+          <MenuItem onClick={handleAccept}>
+            <ListItemIcon><Check /></ListItemIcon>
+            Aceptar
+          </MenuItem>
+
+          <MenuItem onClick={showRejectModal}>
+            <ListItemIcon><Cancel /></ListItemIcon>
+            Rechazar
+          </MenuItem>
+        </>
+      )}
+
+      {isTH && isConfirmed && (
+        <MenuItem onClick={handleFinish}>
+          <ListItemIcon>
+            <TaskAlt />
+          </ListItemIcon>
+          Finalizar
+        </MenuItem>
+      )}
+
+    </>
   );
 };
 
-export default ItemSupply;
+export default Actions;
