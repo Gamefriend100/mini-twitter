@@ -1,98 +1,37 @@
-import { Button, Card, MUIAutocomplete, notifyError, notifySuccess } from "../../../../components/shared";
+import { Card } from "../../../../components/shared";
 import { UseRequestContext } from "../../../../context/safety/kit/request/RequestContext";
-import { UseAppContext } from "../../../../context/AppContext";
-import { NotInterested } from "@mui/icons-material";
-import { appApi } from "../../../../api";
-import { useState } from "react";
 
-const Cancellation = () => {
+const CancellationDetails = () => {
 
-  const {
-    initRequestCancellation,
-    selectedRequest,
-    setRequestList,
-    setModalRequest
-  } = UseRequestContext();
-
-  const { authUserToken } = UseAppContext();
-
-  const [cancellation, setCancellation] = useState(null);
-  const [commit, setCommit] = useState("");
-
-
-  const handleCancel = async () => {
-
-    try {
-
-      const { data } = await appApi.post(
-        `/intranet/supplies/request/status/${selectedRequest.id}`,
-        {
-          statusId: 5,
-          cancellationId: cancellation,
-          commit: commit
-        },
-        {
-          headers: { Authorization: `Bearer ${authUserToken}` },
-        }
-      );
-
-      setRequestList(prev =>
-        prev.map(req =>
-          req.id === selectedRequest.id
-            ? data.updatedRequest
-            : req
-        )
-      );
-
-      notifySuccess(data.msg);
-
-      setModalRequest({ show: false });
-
-    } catch (error) {
-
-      notifyError(
-        error?.response?.data?.msg || "Error al cancelar la solicitud"
-      );
-
-    }
-  };
+  const { selectedRequest } = UseRequestContext();
 
   return (
     <Card>
-      <div className="space-y-6">
-        <div className="flex flex-col items-center gap-2">
-          <h3 className="font-semibold text-gray-700 uppercase">Cancelacion de insumo</h3>
-          <hr className="w-full" />
+      <div className="space-y-4 text-sm">
+        <div>
+          <div className="flex flex-col items-center gap-8 text-xl">
+            <h3 className="font-semibold text-black uppercase">Detalles del rechazo</h3>
+            <hr className="w-full" />
+          </div>
+          <div className="flex flex-col gap-2">
+            <h3 className="font-semibold text-gray-700 uppercase">Motivo de rechazo:</h3>
+            <hr className="w-full" />
+          </div>
+          <div>{selectedRequest?.cancellation?.name}</div>
         </div>
-
-        <MUIAutocomplete
-          required
-          title="Motivo de cancelación"
-          options={initRequestCancellation}
-          value={cancellation}
-          handleChange={({ value }) => setCancellation(value)}
-        />
-
-        <textarea
-          className="w-full border border-gray-300 p-2 rounded mb-2 focus:border-blue-500 outline-none"
-          value={commit}
-          onChange={(event) => { setCommit(event.target.value) }}
-        />
-
+        <div className="space-y-6 ">
+          <div className="flex flex-col gap-2">
+            <h3 className="font-semibold text-gray-700 uppercase">Descripción:</h3>
+            <hr className="w-full" />
+          </div>
+          <div>{selectedRequest?.cancellationReason}</div>
+        </div>
         <div className="flex justify-end">
-          <Button
-            variant="contained"
-            size="small"
-            text="Cancelar"
-            startIcon={<NotInterested sx={{ fontSize: 16 }} />}
-            onClick={handleCancel}
-            disabled={!cancellation || !commit.trim()}
-          />
         </div>
-
       </div>
     </Card>
   );
+
 };
 
-export default Cancellation;
+export default CancellationDetails;
