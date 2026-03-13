@@ -1,217 +1,257 @@
-import { BarCard, Button, DropdownMenu, notifyError, notifySuccess, TitleCard } from "../../../../components/shared";
-import ItemSupplyRequest from "../../../../components/safety/kit/request/ItemSupplyRequest";
-import { UseRequestContext } from "../../../../context/safety/kit/request/RequestContext";
-import { UseKitContext } from "../../../../context/safety/kit/KitContext";
-import { UseAppContext } from "../../../../context/AppContext";
-import { AddCircle, Save, Send } from "@mui/icons-material";
-import { useNavigate } from "react-router-dom";
-import { appApi } from "../../../../api";
-import { useEffect } from "react";
-import Form from "./Form";
+import { UseRequestContext } from '../../../../context/safety/kit/request/RequestContext';
+import { UseAppContext } from '../../../../context/AppContext';
+import { MaterialReactTable, useMaterialReactTable } from 'material-react-table';
+import Actions from '../../../../components/safety/kit/request/Actions';
+import { getIconStatusId, getStatus } from '../../../../helpers/safety'
+import { MRT_Localization_ES } from 'material-react-table/locales/es';
+import { Segment } from "@mui/icons-material";
+import { useMemo } from 'react';
+import { formatDateString } from '../../../../helpers/shared';
 
-const url = "/seguridad/botiquin/solicitudes";
+const Table = () => {
 
-const Details = () => {
+  const { requestList, isFetchingRequestList, initRequestStatus } = UseRequestContext();
+  const { hasRole } = UseAppContext();
 
-  const {
-    selectedRequest,
-    selectedSupplies,
-    setSelectedSupplies,
-    setModalRequest,
-    setRequestList,
-    setSelectedRequest,
-    initSuppliesByRequestId,
-    isFetchingSuppliesByRequestId,
-    isSuccessSuppliesByRequestId
-  } = UseRequestContext();
+  const filteredRequests = useMemo(() => {
 
-  const { authUserToken, hasRole } = UseAppContext();
-  const { supplies } = UseKitContext();
-  const goTo = useNavigate();
-
-  const isViewMode = selectedRequest?.viewOnly === true;
-  const isTHView = isViewMode && hasRole(["TALENTO HUMANO"]);
-
-  useEffect(() => {
-
-    if (!selectedRequest) {
-      goTo(url);
+    if (hasRole(["ADMIN"])) {
+      return requestList;
     }
-  }, [selectedRequest]);
 
-  useEffect(() => {
+    if (hasRole(["TALENTO HUMANO"])) {
+      return requestList.filter(req => req.statusId !== 1);
+    }
 
-    if (!isFetchingSuppliesByRequestId && isSuccessSuppliesByRequestId) {
-      const requestIds = initSuppliesByRequestId.map(
-        rs => rs.supply.id
+    return requestList;
+
+  }, [requestList]);
+
+  const statusOptions = useMemo(() => {
+
+    if (!initRequestStatus) return [];
+
+    let statuses = initRequestStatus;
+
+    if (hasRole(["TALENTO HUMANO"])) {
+      statuses = initRequestStatus.filter(
+        (status) => status.label.toUpperCase() !== "CREADA"
       );
-      setSelectedSupplies(requestIds);
     }
-  }, [initSuppliesByRequestId]);
 
-  const handleSubmit = async () => {
+    const options = statuses.map((status) => ({
+      text: status.label,
+      value: status.label,
+    }));
 
-    try {
+    return [{ text: "TODOS", value: "" }, ...options];
 
-      const payload = {
-        supplies: selectedSupplies
+  }, [initRequestStatus, hasRole]);
+
+  const columns = useMemo(
+    () => [
+      {
+        header: "FECHA",
+        accessorFn: (row) => formatDateString(row?.date),
+      },
+      {
+        header: 'USUARIO',
+        accessorFn: (row) => row?.user?.fullName,
+      },
+      {
+        header: 'SUCURSAL',
+        accessorFn: (row) => row?.branch?.name
+      },
+      {
+        header: 'ESTADO',
+        id: "status",
+        filterVariant: "select",
+        filterSelectOptions: statusOptions,
+        accessorFn: (row) => row.status?.name,
+        Cell: ({ row }) => (
+          <span className={`inline-flex items-center gap-1 px-2 py-1 shadow-md rounded-full font-semibold text-[10px] ${getStatus(row.original.status.id)}`}>
+            {getIconStatusId(row.original.status.id)}
+            {row.original.status.name}
+          </span>
+        )
+      },
+      {
+        header: 'CANCELACIÓN',
+        accessorKey: 'cancellation',
+        Cell: ({ cell }) => cell.getValue()?.name === "",
+      },
+    ],
+    [statusOptions],
+  );
+
+  const table = useMaterialReactTable({
+
+    columns,
+    data: filteredRequests,
+
+    enableColumnActions: false,
+    enableColumnDragging: false,
+    enableColumnFilterModes: false,
+    enableColumnFilters: true,
+    enableColumnPinning: true,
+    enableFacetedValues: true,
+    enableGrouping: true,
+    enableStickyHeader: true,
+    enableTopToolbar: false,
+
+    paginationDisplayMode: "pages",
+    positionToolbarAlertBanner: "bottom",
+    localization: MRT_Localization_ES,
+
+    initialState: {
+      showColumnFilters: true,
+      density: "compact",
+      pagination: { pageSize: 10 },
+      columnPinning: {
+        right: ['mrt-row-actions'],
+      },
+      columnOrder: [
+        'user.fullName',
+        'user.branch.name',
+        'status.name',
+        'cancellation.name',
+      ],
+    },
+
+    state: {
+      isLoading: isFetchingRequestList,
+    },
+
+    muiSearchTextFieldProps: {
+      size: "small",
+      variant: "outlined",
+    },
+
+    muiPaginationProps: {
+      color: "primary",
+      rowsPerPageOptions: [10, 15, 25, 35],
+      shape: "rounded",
+      variant: "outlined",
+      sx: {
+        ".MuiPaginationItem-root": {
+          borderRadius: "50%",
+          "&:hover": {
+            background: "rgba(25, 118, 210,0.2)",
+            color: "#1976d2",
+          },
+        },
+        ".Mui-selected": {
+          backgroundColor: "#1976d2",
+          color: "white",
+        },
+      },
+    },
+
+    displayColumnDefOptions: {
+      'mrt-row-actions': {
+        header: 'ACCIONES'
+      },
+    },
+
+    muiTableHeadCellProps: {
+      sx: {
+        fontSize: "0.75rem",
+      },
+    },
+
+    muiTableBodyCellProps: ({ row, column }) => {
+
+      if (column.id !== "mrt-row-actions") {
+        return {
+          sx: { fontSize: "0.75rem" }
+        };
+      }
+
+      const statusId = row.original.statusId;
+
+      const isAccepted = statusId === 2;
+      const isCancelled = statusId === 3;
+      const isSent = statusId === 4;
+
+      if (hasRole(["SUCURSAL"])) {
+
+        if (isCancelled || statusId === 7 || statusId === 6) {
+          return {
+            sx: {
+              pointerEvents: "none",
+              opacity: 0.4,
+              fontSize: "0.75rem"
+            }
+          };
+        }
+
+      }
+
+      if (hasRole(["TALENTO HUMANO"])) {
+
+        if (!isSent && statusId !== 7) {
+          return {
+            sx: {
+              pointerEvents: "none",
+              opacity: 0.4,
+              fontSize: "0.75rem"
+            }
+          };
+        }
+
+      }
+
+      return {
+        sx: { fontSize: "0.75rem" }
       };
 
-      const { data } = await appApi.put(
-        `/intranet/supplies/request/update/${selectedRequest.id}`,
-        payload,
-        {
-          headers: { Authorization: `Bearer ${authUserToken}` }
-        }
-      );
+    },
 
-      setRequestList(prev =>
-        prev.map(req =>
-          req.id === selectedRequest.id
-            ? data.updatedRequest
-            : req
-        )
-      );
-
-      setSelectedRequest(data.updatedRequest);
-
-      const newSupplies = data.updatedRequest.requestSupplies.map(
-        rs => rs.supply.value
-      );
-
-      setSelectedSupplies(newSupplies);
-
-      notifySuccess(data.msg);
-
-      setSelectedSupplies([]);
-      setSelectedRequest(null);
-
-      goTo(url);
-
-    } catch (error) {
-
-      notifyError(
-        error?.response?.data?.msg || "Error al actualizar la solicitud"
-      );
-    }
-  };
-
-  const handleSend = async () => {
-
-    try {
-
-      const { data } = await appApi.post(
-        `/intranet/supplies/request/status/${selectedRequest.id}`,
-        {
-          statusId: 4
+    muiFilterTextFieldProps: {
+      size: "small",
+      InputProps: {
+        sx: {
+          fontSize: "0.75rem",
         },
-        {
-          headers: { Authorization: `Bearer ${authUserToken}` }
-        }
-      );
-
-      setRequestList(prev =>
-        prev.map(req =>
-          req.id === selectedRequest.id
-            ? data.updatedRequest
-            : req
-        )
-      );
-
-      setSelectedRequest(null);
-
-      notifySuccess(data.msg);
-
-      goTo(url);
-
-    } catch (error) {
-
-      notifyError(
-        error?.response?.data?.msg || "Error al enviar la solicitud"
-      );
-
-    }
-
-  };
-
-  const handleClick = () => {
-    setModalRequest({ show: true, children: <Form /> })
-  };
-
-  const actionsMenu = [
-    {
-      name: "Guardar",
-      icon: <Save fontSize="small" />,
-      action: handleSubmit,
+        endAdornment: null,
+      },
     },
-    {
-      name: "Enviar",
-      icon: <Send fontSize="small" />,
-      action: handleSend,
+
+    muiTablePaperProps: {
+      sx: {
+        boxShadow: "0px 5px 5px rgba(0, 0, 0, 0.1)",
+      },
     },
-  ];
+
+    enableRowActions: true,
+    positionActionsColumn: "last",
+
+    renderRowActionMenuItems: ({ closeMenu, row }) => [
+      <Actions
+        key={row.id}
+        row={row}
+        closeMenu={closeMenu}
+      />,
+    ],
+
+  });
+
+  const totalRecords = table.getFilteredRowModel().rows.length;
 
   return (
-    <div className="space-y-6">
+    <div className="relative">
 
-      <TitleCard
-        title={isViewMode ? "INSUMOS SOLICITADOS" : "EDITAR SOLICITUD"}
-        desc={
-          isTHView ? (
-            <span className="text-xs">
-              Lista de insumos solicitados por el usuario
-            </span>
-          ) : (
-            <span className="flex flex-col text-xs">
-              <span>{selectedRequest?.user?.fullName}</span>
-              <span>{selectedRequest?.branch?.name}</span>
-            </span>
-          )
-        }
-        url={url}
-      >
-        {!isViewMode && (
-          <DropdownMenu
-            options={actionsMenu}
-          />
-        )}
+      <MaterialReactTable table={table} />
 
-      </TitleCard>
-
-      <div>
-        <BarCard
-          noPadding
-          buttons={
-            !isViewMode && (
-              <Button
-                variant="contained"
-                size="small"
-                text="Agregar Insumo"
-                startIcon={<AddCircle sx={{ fontSize: 16 }} />}
-                onClick={handleClick}
-              />
-            )
-          }
-        >
-
-          <div className="p-10">
-            {supplies
-              ?.filter(supply => selectedSupplies.includes(supply.value))
-              .map(supply => (
-                <ItemSupplyRequest
-                  key={supply.value}
-                  supplyRequest={supply}
-                  readOnly={isViewMode}
-                />
-              ))
-            }
-          </div>
-
-        </BarCard>
+      <div className="absolute p-4 text-sm rounded-r-lg -mt-14 z-10 flex justify-center items-center gap-2">
+        <Segment fontSize="small" />
+        <span className="text-[12px]">
+          {`${totalRecords.toLocaleString()} registro${totalRecords !== 1 ? "s" : ""}`}
+        </span>
       </div>
 
     </div>
   );
 };
 
-export default Details;
+export default Table;
