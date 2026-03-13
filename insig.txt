@@ -1,288 +1,75 @@
-import CancellationDetails from "../../../../views/safety/kit/requests/CancellationDetails";
-import Cancellation from "../../../../views/safety/kit/requests/Cancellation";
-import { UseRequestContext } from "../../../../context/safety/kit/request/RequestContext";
-import { UseAppContext } from "../../../../context/AppContext";
-import { Cancel, Edit, Send, Visibility, Check, CheckCircle, TaskAlt } from "@mui/icons-material";
-import { notifyError, notifySuccess } from "../../../shared";
-import { ListItemIcon, MenuItem } from "@mui/material";
-import { useNavigate } from "react-router-dom";
+import { createContext, useContext, useState, useEffect } from "react";
+import { UseAppContext } from "../../../AppContext";
+import { useGetKit } from "../../../../hooks/safety/kit";
 import { appApi } from "../../../../api";
 
-const Actions = ({ closeMenu, row }) => {
+const BranchesContext = createContext();
 
-  const { setSelectedRequest, setRequestList, setModalRequest } = UseRequestContext();
-  const { authUserToken, hasRole } = UseAppContext();
-  const navigate = useNavigate();
+export const UseBranchesContext = () => {
+  return useContext(BranchesContext);
+};
 
-  const statusId = row.original.statusId;
+export const BranchesProvider = ({ children }) => {
 
-  const isCreated = statusId === 1;
-  const isSent = statusId === 4;
-  const isAccepted = statusId === 2;
-  const isRejected = statusId === 5;
-  const isConfirmed = statusId === 7;
+  const [modalRequest, setModalRequest] = useState({ show: false });
+  const [selectedKitId, setSelectedKitId] = useState(null);
+  const [kitData, setKitData] = useState([]);
 
-  const isAdmin = hasRole(["ADMIN"]);
-  const isSucursal = hasRole(["SUCURSAL"]);
-  const isTH = hasRole(["TALENTO HUMANO"]);
+  const { authUserToken, branches, authUser, hasRole } = UseAppContext();
+  const isBranchRole = hasRole(["SUCURSAL"]);
 
-  const updateList = (data) => {
-    setRequestList(prev =>
-      prev.map(req =>
-        req.id === row.original.id
-          ? data.updatedRequest
-          : req
-      )
-    );
-  };
+  const [selectBranch, setSelectBranch] = useState(null);
 
-  const handleRedirect = () => {
-    closeMenu();
-    setSelectedRequest(row.original);
-    navigate("/seguridad/botiquin/solicitudes/detalles");
-  };
+  useEffect(() => {
 
-  const handleViewSupplies = () => {
-    closeMenu();
-    setSelectedRequest({
-    ...row.original, viewOnly: true });
-    navigate("/seguridad/botiquin/solicitudes/detalles");
-  };
+    if (isBranchRole && authUser?.user?.branchId) {
+      setSelectBranch(authUser.user.branchId);
 
-  const handleSend = async () => {
-
-    closeMenu();
-
-    try {
-
-      const { data } = await appApi.post(
-        `/intranet/supplies/request/status/${row.original.id}`,
-        { statusId: 4 },
-        {
-          headers: { Authorization: `Bearer ${authUserToken}` }
-        }
-      );
-
-      updateList(data);
-      notifySuccess(data.msg);
-
-    } catch (error) {
-
-      notifyError(error?.response?.data?.msg);
-
+    } else if (branches?.length) {
+      setSelectBranch(branches[0].value);
     }
 
-  };
+  }, [branches, authUser, isBranchRole]);
 
-  const handleCancel = async () => {
+  const { data, isFetching } = useGetKit(selectBranch, authUserToken).kit;
 
-    closeMenu();
+  useEffect(() => {
+    if (data) {
+      setKitData(data);
+    }
+  }, [data]);
 
+  const deleteBranchSupply = async (id) => {
     try {
 
-      const { data } = await appApi.post(
-        `/intranet/supplies/request/status/${row.original.id}`,
-        { statusId: 3 },
-        {
-          headers: { Authorization: `Bearer ${authUserToken}` }
-        }
-      );
+      await appApi.delete(`/intranet/branch/supplies/${id}`, {
+        headers: { Authorization: `Bearer ${authUserToken}` }
+      });
 
-      updateList(data);
-      notifySuccess(data.msg);
+      setKitData(prev => prev.filter(item => item.id !== id));
+
+      setModalRequest({ show: false });
 
     } catch (error) {
-
-      notifyError(error?.response?.data?.msg);
-
+      console.error(error);
     }
-
-  };
-
-  const handleAccept = async () => {
-
-    closeMenu();
-
-    try {
-
-      const { data } = await appApi.post(
-        `/intranet/supplies/request/status/${row.original.id}`,
-        { statusId: 2 },
-        {
-          headers: { Authorization: `Bearer ${authUserToken}` }
-        }
-      );
-
-      updateList(data);
-      notifySuccess(data.msg);
-
-    } catch (error) {
-
-      notifyError(error?.response?.data?.msg);
-
-    }
-
-  };
-
-  const handleConfirm = async () => {
-
-    closeMenu();
-
-    try {
-
-      const { data } = await appApi.post(
-        `/intranet/supplies/request/status/${row.original.id}`,
-        { statusId: 7 },
-        {
-          headers: { Authorization: `Bearer ${authUserToken}` }
-        }
-      );
-
-      updateList(data);
-      notifySuccess(data.msg);
-
-    } catch (error) {
-
-      notifyError(error?.response?.data?.msg);
-
-    }
-
-  };
-
-  const handleFinish = async () => {
-
-    closeMenu();
-
-    try {
-
-      const { data } = await appApi.post(
-        `/intranet/supplies/request/status/${row.original.id}`,
-        { statusId: 6 },
-        {
-          headers: { Authorization: `Bearer ${authUserToken}` }
-        }
-      );
-
-      updateList(data);
-      notifySuccess(data.msg);
-
-    } catch (error) {
-
-      notifyError(error?.response?.data?.msg);
-
-    }
-
-  };
-
-  const showRejectModal = () => {
-
-    closeMenu();
-
-    setSelectedRequest(row.original);
-
-    setModalRequest({
-      show: true,
-      children: <Cancellation />
-    });
-
-  };
-
-  const showRejectionDetails = () => {
-
-    closeMenu();
-
-    setSelectedRequest(row.original);
-
-    setModalRequest({
-      show: true,
-      children: <CancellationDetails />
-    });
-
   };
 
   return (
-    <>
-
-      {isRejected && (
-        <MenuItem onClick={showRejectionDetails}>
-          <ListItemIcon>
-            <Visibility />
-          </ListItemIcon>
-          Detalles
-        </MenuItem>
-      )}
-
-      {isAdmin && (
-        <>
-          <MenuItem onClick={handleRedirect}><Edit fontSize="small" /> Editar</MenuItem>
-          <MenuItem onClick={handleSend}><Send fontSize="small" /> Enviar</MenuItem>
-          <MenuItem onClick={handleCancel}><Cancel fontSize="small" /> Cancelar</MenuItem>
-          <MenuItem onClick={handleAccept}><Check fontSize="small" /> Aceptar</MenuItem>
-          <MenuItem onClick={showRejectModal}><Cancel fontSize="small" /> Rechazar</MenuItem>
-          <MenuItem onClick={handleConfirm}><CheckCircle fontSize="small" /> Confirmar</MenuItem>
-        </>
-      )}
-
-      {isSucursal && isCreated && (
-        <>
-          <MenuItem onClick={handleRedirect}>
-            <ListItemIcon><Edit /></ListItemIcon>
-            Editar
-          </MenuItem>
-
-          <MenuItem onClick={handleSend}>
-            <ListItemIcon><Send /></ListItemIcon>
-            Enviar
-          </MenuItem>
-        </>
-      )}
-
-      {isSucursal && isSent && (
-        <MenuItem onClick={handleCancel}>
-          <ListItemIcon><Cancel /></ListItemIcon>
-          Cancelar
-        </MenuItem>
-      )}
-
-      {isSucursal && isAccepted && (
-        <MenuItem onClick={handleConfirm}>
-          <ListItemIcon><CheckCircle /></ListItemIcon>
-          Confirmar
-        </MenuItem>
-      )}
-
-      {(isTH || isAdmin) && isSent && (
-        <>
-          <MenuItem onClick={handleViewSupplies}>
-            <ListItemIcon>
-              <Visibility />
-            </ListItemIcon>
-            Ver insumos
-          </MenuItem>
-
-          <MenuItem onClick={handleAccept}>
-            <ListItemIcon><Check /></ListItemIcon>
-            Aceptar
-          </MenuItem>
-
-          <MenuItem onClick={showRejectModal}>
-            <ListItemIcon><Cancel /></ListItemIcon>
-            Rechazar
-          </MenuItem>
-        </>
-      )}
-
-      {isTH && isConfirmed && (
-        <MenuItem onClick={handleFinish}>
-          <ListItemIcon>
-            <TaskAlt />
-          </ListItemIcon>
-          Finalizar
-        </MenuItem>
-      )}
-
-    </>
+    <BranchesContext.Provider
+      value={{
+        selectBranch,
+        setSelectBranch: isBranchRole ? () => {} : setSelectBranch,
+        data: kitData,
+        isFetching,
+        modalRequest,
+        setModalRequest,
+        selectedKitId,
+        setSelectedKitId,
+        deleteBranchSupply
+      }}
+    >
+      {children}
+    </BranchesContext.Provider>
   );
 };
-
-export default Actions;
