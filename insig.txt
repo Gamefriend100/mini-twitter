@@ -1,9 +1,9 @@
-import { BarCard, Button, Empty, notifyError, TitleCard, notifySuccess } from "../../../../components/shared";
-import ItemSupplyRequest from "../../../../components/safety/kit/request/ItemSupplyRequest"
+import { BarCard, Button, DropdownMenu, notifyError, notifySuccess, TitleCard } from "../../../../components/shared";
+import ItemSupplyRequest from "../../../../components/safety/kit/request/ItemSupplyRequest";
 import { UseRequestContext } from "../../../../context/safety/kit/request/RequestContext";
 import { UseKitContext } from "../../../../context/safety/kit/KitContext";
 import { UseAppContext } from "../../../../context/AppContext";
-import { AddCircle, NoteAdd } from "@mui/icons-material";
+import { AddCircle, Save, Send } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { appApi } from "../../../../api";
 import { useEffect } from "react";
@@ -11,101 +11,207 @@ import Form from "./Form";
 
 const url = "/seguridad/botiquin/solicitudes";
 
-const Create = () => {
-  const { setModalRequest, selectedSupplies, setSelectedSupplies, requestList, setRequestList } = UseRequestContext();
-  const { authUserToken } = UseAppContext();
+const Details = () => {
+
+  const {
+    selectedRequest,
+    selectedSupplies,
+    setSelectedSupplies,
+    setModalRequest,
+    setRequestList,
+    setSelectedRequest,
+    initSuppliesByRequestId,
+    isFetchingSuppliesByRequestId,
+    isSuccessSuppliesByRequestId
+  } = UseRequestContext();
+
+  const { authUserToken, hasRole } = UseAppContext();
   const { supplies } = UseKitContext();
   const goTo = useNavigate();
 
+  const isViewMode = selectedRequest?.viewOnly === true;
+  const isTHView = isViewMode && hasRole(["TALENTO HUMANO"]);
+
   useEffect(() => {
-    return () => {
+
+    if (!selectedRequest) {
+      goTo(url);
+    }
+  }, [selectedRequest]);
+
+  useEffect(() => {
+
+    if (!isFetchingSuppliesByRequestId && isSuccessSuppliesByRequestId) {
+      const requestIds = initSuppliesByRequestId.map(
+        rs => rs.supply.id
+      );
+      setSelectedSupplies(requestIds);
+    }
+  }, [initSuppliesByRequestId]);
+
+  const handleSubmit = async () => {
+
+    try {
+
+      const payload = {
+        supplies: selectedSupplies
+      };
+
+      const { data } = await appApi.put(
+        `/intranet/supplies/request/update/${selectedRequest.id}`,
+        payload,
+        {
+          headers: { Authorization: `Bearer ${authUserToken}` }
+        }
+      );
+
+      setRequestList(prev =>
+        prev.map(req =>
+          req.id === selectedRequest.id
+            ? data.updatedRequest
+            : req
+        )
+      );
+
+      setSelectedRequest(data.updatedRequest);
+
+      const newSupplies = data.updatedRequest.requestSupplies.map(
+        rs => rs.supply.value
+      );
+
+      setSelectedSupplies(newSupplies);
+
+      notifySuccess(data.msg);
+
       setSelectedSupplies([]);
+      setSelectedRequest(null);
+
+      goTo(url);
+
+    } catch (error) {
+
+      notifyError(
+        error?.response?.data?.msg || "Error al actualizar la solicitud"
+      );
     }
-  }, []);
+  };
 
- const handleSubmit = async () => {
-  try {
+  const handleSend = async () => {
 
-    if (selectedSupplies.length === 0) {
-      notifyError("Debes seleccionar al menos un insumo");
-      return;
+    try {
+
+      const { data } = await appApi.post(
+        `/intranet/supplies/request/status/${selectedRequest.id}`,
+        {
+          statusId: 4
+        },
+        {
+          headers: { Authorization: `Bearer ${authUserToken}` }
+        }
+      );
+
+      setRequestList(prev =>
+        prev.map(req =>
+          req.id === selectedRequest.id
+            ? data.updatedRequest
+            : req
+        )
+      );
+
+      setSelectedRequest(null);
+
+      notifySuccess(data.msg);
+
+      goTo(url);
+
+    } catch (error) {
+
+      notifyError(
+        error?.response?.data?.msg || "Error al enviar la solicitud"
+      );
+
     }
 
-    const payload = {
-      supplies: selectedSupplies
-    };
-
-    const { data } = await appApi.post(
-      "/intranet/supplies/request/create",
-      payload,
-      {
-        headers: { Authorization: `Bearer ${authUserToken}` },
-      }
-    );
-
-    const newLocalData = [data.newRequest, ...requestList];
-    setRequestList(newLocalData);
-
-    notifySuccess(data.msg);
-    goTo(url);
-
-  } catch (error) {
-
-    notifyError(
-      error?.response?.data?.msg || "Error al crear la solicitud"
-    );
-
-  }
-};
+  };
 
   const handleClick = () => {
     setModalRequest({ show: true, children: <Form /> })
-  }
+  };
+
+  const actionsMenu = [
+    {
+      name: "Guardar",
+      icon: <Save fontSize="small" />,
+      action: handleSubmit,
+    },
+    {
+      name: "Enviar",
+      icon: <Send fontSize="small" />,
+      action: handleSend,
+    },
+  ];
 
   return (
     <div className="space-y-6">
+
       <TitleCard
-        title="CREAR SOLICITUD"
-        desc="Agrega los insumos que deseas solicitar"
+        title={isViewMode ? "INSUMOS SOLICITADOS" : "EDITAR SOLICITUD"}
+        desc={
+          isTHView ? (
+            <span className="text-xs">
+              Lista de insumos solicitados por el usuario
+            </span>
+          ) : (
+            <span className="flex flex-col text-xs">
+              <span>{selectedRequest?.user?.fullName}</span>
+              <span>{selectedRequest?.branch?.name}</span>
+            </span>
+          )
+        }
         url={url}
       >
-
-        <Button
-          variant="contained"
-          size="small"
-          classes={{ background: "#16a34a" }}
-          text="Crear"
-          icon={<NoteAdd sx={{ fontSize: 16 }} />}
-          action={handleSubmit}
-          disabled={!selectedSupplies.length}
-        />
+        {!isViewMode && (
+          <DropdownMenu
+            options={actionsMenu}
+          />
+        )}
 
       </TitleCard>
+
       <div>
         <BarCard
           noPadding
           buttons={
-            <Button
-              variant="contained"
-              size="small"
-              text={"Agregar Insumo"}
-              startIcon={<AddCircle sx={{ fontSize: 16 }} />}
-              onClick={handleClick}
-            >
-            </Button>
+            !isViewMode && (
+              <Button
+                variant="contained"
+                size="small"
+                text="Agregar Insumo"
+                startIcon={<AddCircle sx={{ fontSize: 16 }} />}
+                onClick={handleClick}
+              />
+            )
           }
         >
+
           <div className="p-10">
-            {!selectedSupplies.length ? (<Empty msg="No hay insumos solicitados" />)
-              : (supplies?.filter(supply => selectedSupplies.includes(supply.value)
-              ).map(supply => (<ItemSupplyRequest key={supply.value} supplyRequest={supply} />
+            {supplies
+              ?.filter(supply => selectedSupplies.includes(supply.value))
+              .map(supply => (
+                <ItemSupplyRequest
+                  key={supply.value}
+                  supplyRequest={supply}
+                  readOnly={isViewMode}
+                />
               ))
-              )}
+            }
           </div>
+
         </BarCard>
       </div>
+
     </div>
   );
 };
 
-export default Create;
+export default Details;
