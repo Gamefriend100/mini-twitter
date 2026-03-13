@@ -1,75 +1,71 @@
-import { createContext, useContext, useState, useEffect } from "react";
-import { UseAppContext } from "../../../AppContext";
-import { useGetKit } from "../../../../hooks/safety/kit";
-import { appApi } from "../../../../api";
+import {AssignmentTurnedIn, EditNote, FactCheck, LocalHospital, MedicalServices, NotInterested, SaveAs, ThumbUpAlt, Vaccines} from "@mui/icons-material";
+import { CollapseList } from "../../components/shared";
+import { UseAppContext } from "../../context/AppContext";
 
-const BranchesContext = createContext();
+const RoutesKit = () => {
+  const { currentApp } = UseAppContext();
+  const role = currentApp?.role;
 
-export const UseBranchesContext = () => {
-  return useContext(BranchesContext);
-};
-
-export const BranchesProvider = ({ children }) => {
-
-  const [modalRequest, setModalRequest] = useState({ show: false });
-  const [selectedKitId, setSelectedKitId] = useState(null);
-  const [kitData, setKitData] = useState([]);
-
-  const { authUserToken, branches, authUser, hasRole } = UseAppContext();
-  const isBranchRole = hasRole(["SUCURSAL"]);
-
-  const [selectBranch, setSelectBranch] = useState(null);
-
-  useEffect(() => {
-
-    if (isBranchRole && authUser?.user?.branchId) {
-      setSelectBranch(authUser.user.branchId);
-
-    } else if (branches?.length) {
-      setSelectBranch(branches[0].value);
+  const routesKit = [
+    {
+      url: "/seguridad/botiquin/insumos",
+      name: "Insumos",
+      icon: <Vaccines fontSize="small" />
+    },
+    {
+      url: "/seguridad/botiquin/sucursal",
+      name: role === "SUCURSAL" ? "My Botiquín" : "Botiquín por sucursal",
+      icon: <LocalHospital fontSize="small" />
+    },
+    {
+      url: "/seguridad/botiquin/solicitudes",
+      name: "Solicitudes",
+      icon: <FactCheck fontSize="small" />
     }
+  ];
 
-  }, [branches, authUser, isBranchRole]);
-
-  const { data, isFetching } = useGetKit(selectBranch, authUserToken).kit;
-
-  useEffect(() => {
-    if (data) {
-      setKitData(data);
-    }
-  }, [data]);
-
-  const deleteBranchSupply = async (id) => {
-    try {
-
-      await appApi.delete(`/intranet/branch/supplies/${id}`, {
-        headers: { Authorization: `Bearer ${authUserToken}` }
-      });
-
-      setKitData(prev => prev.filter(item => item.id !== id));
-
-      setModalRequest({ show: false });
-
-    } catch (error) {
-      console.error(error);
-    }
-  };
+  const childrens =
+    role === "SUCURSAL"
+      ? routesKit.filter(r => r.url !== "/seguridad/botiquin/insumos")
+      : routesKit;
 
   return (
-    <BranchesContext.Provider
-      value={{
-        selectBranch,
-        setSelectBranch: isBranchRole ? () => {} : setSelectBranch,
-        data: kitData,
-        isFetching,
-        modalRequest,
-        setModalRequest,
-        selectedKitId,
-        setSelectedKitId,
-        deleteBranchSupply
-      }}
-    >
-      {children}
-    </BranchesContext.Provider>
+    <CollapseList
+      name="BOTIQUIN"
+      icon={<MedicalServices fontSize="small" />}
+      childrens={childrens}
+    />
   );
 };
+
+export const routes = [
+  {
+    element: <RoutesKit />
+  }
+];
+
+export const getStatus = (id) => {
+  switch (id) {
+    case 1: return "bg-gray-400 text-gray-900"
+    case 2: return "bg-green-400 text-green-900"
+    case 3: return "bg-red-400 text-red-900"
+    case 4: return "bg-yellow-400 text-yellow-900"
+    case 5: return "bg-blue-400 text-blue-900"
+    case 6: return "bg-purple-400 text-purple-900"
+    case 7: return "bg-green-400 text-green-900"
+    default: ""
+  }
+};
+
+export const getIconStatusId = (id) => {
+  switch (id) {
+    case 1: return <EditNote sx={{ fontSize: "15px"}} />
+    case 2: return <SaveAs sx={{ fontSize: "15px"}} />
+    case 3: return <NotInterested sx={{ fontSize: "15px"}} />
+    case 4: return <FactCheck sx={{ fontSize: "15px"}} />
+    case 5: return <NotInterested sx={{ fontSize: "15px"}} />
+    case 6: return <AssignmentTurnedIn sx={{ fontSize: "15px"}} />
+    case 7: return <ThumbUpAlt sx={{ fontSize: "15px"}} />
+    default: null
+  }
+}
