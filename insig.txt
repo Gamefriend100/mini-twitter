@@ -1,71 +1,65 @@
-import {AssignmentTurnedIn, EditNote, FactCheck, LocalHospital, MedicalServices, NotInterested, SaveAs, ThumbUpAlt, Vaccines} from "@mui/icons-material";
-import { CollapseList } from "../../components/shared";
-import { UseAppContext } from "../../context/AppContext";
+import { TitleCard, Card, SelectBranch, Loader, Empty, Modal } from '../../../../components/shared'
+import { Vaccines } from '@mui/icons-material'
+import { UseBranchesContext } from '../../../../context/safety/kit/branches/BranchesContext';
+import ItemSupply from '../../../../components/safety/kit/branches/ItemSupply';
+import { UseAppContext } from '../../../../context/AppContext';
 
-const RoutesKit = () => {
-  const { currentApp } = UseAppContext();
-  const role = currentApp?.role;
+const Index = () => {
 
-  const routesKit = [
-    {
-      url: "/seguridad/botiquin/insumos",
-      name: "Insumos",
-      icon: <Vaccines fontSize="small" />
-    },
-    {
-      url: "/seguridad/botiquin/sucursal",
-      name: role === "SUCURSAL" ? "My Botiquín" : "Botiquín por sucursal",
-      icon: <LocalHospital fontSize="small" />
-    },
-    {
-      url: "/seguridad/botiquin/solicitudes",
-      name: "Solicitudes",
-      icon: <FactCheck fontSize="small" />
-    }
-  ];
+  const {
+    data,
+    isFetching,
+    setSelectBranch,
+    selectBranch,
+    modalRequest,
+    setModalRequest
+  } = UseBranchesContext();
+  
 
-  const childrens =
-    role === "SUCURSAL"
-      ? routesKit.filter(r => r.url !== "/seguridad/botiquin/insumos")
-      : routesKit;
+  const { hasRole } = UseAppContext();
+
+  const title = hasRole(["SUCURSAL"])
+    ? "BIENVENIDO A TU BOTIQUÍN"
+    : "BOTIQUÍN POR SUCURSAL";
 
   return (
-    <CollapseList
-      name="BOTIQUIN"
-      icon={<MedicalServices fontSize="small" />}
-      childrens={childrens}
-    />
+    <>
+      <div className='space-y-6'>
+
+        <TitleCard
+          title={title}
+          desc="Gestión de insumos"
+          icon={<Vaccines />}
+        />
+
+        {hasRole(["ADMIN", "TALENTO HUMANO"]) && (
+          <Card>
+            <SelectBranch
+              value={selectBranch}
+              handleChange={({ value }) => setSelectBranch(value)}
+            />
+          </Card>
+        )}
+
+        <Card classes="flex flex-col gap-3">
+          {isFetching
+            ? (<Loader />)
+            : data?.length === 0
+              ? <Empty msg='No hay insumos asignados a esta sucursal' />
+              : data?.map((element) => (
+                <ItemSupply key={element.id} supply={element} />
+              ))
+          }
+        </Card>
+
+      </div>
+
+      <Modal
+        infoModal={modalRequest}
+        setInfoModal={setModalRequest}
+      />
+    </>
   );
 };
 
-export const routes = [
-  {
-    element: <RoutesKit />
-  }
-];
-
-export const getStatus = (id) => {
-  switch (id) {
-    case 1: return "bg-gray-400 text-gray-900"
-    case 2: return "bg-green-400 text-green-900"
-    case 3: return "bg-red-400 text-red-900"
-    case 4: return "bg-yellow-400 text-yellow-900"
-    case 5: return "bg-blue-400 text-blue-900"
-    case 6: return "bg-purple-400 text-purple-900"
-    case 7: return "bg-green-400 text-green-900"
-    default: ""
-  }
-};
-
-export const getIconStatusId = (id) => {
-  switch (id) {
-    case 1: return <EditNote sx={{ fontSize: "15px"}} />
-    case 2: return <SaveAs sx={{ fontSize: "15px"}} />
-    case 3: return <NotInterested sx={{ fontSize: "15px"}} />
-    case 4: return <FactCheck sx={{ fontSize: "15px"}} />
-    case 5: return <NotInterested sx={{ fontSize: "15px"}} />
-    case 6: return <AssignmentTurnedIn sx={{ fontSize: "15px"}} />
-    case 7: return <ThumbUpAlt sx={{ fontSize: "15px"}} />
-    default: null
-  }
-}
+export default Index;
