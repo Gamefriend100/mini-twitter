@@ -1,99 +1,434 @@
-const express = require('express');
-const cors = require('cors');
-const initJobs = require('../jobs');
+const db = require('../../../database/models');
+const { clearString } = require('../../../helpers/shared');
 
-const {
-    apps,
-    auth,
-    branches,
-    branchZones,
-    departments,
-    divisions,
-    permissions,
-    positions,
-    roles,
-    tutorials,
-    users,
-    safSupplies,
-    safCategorySupplies,
-    safKit,
-    safRequest,
-    safRequestRejection,
-    safRequestStatus,
-    safBranchSupply
+const getRequest = async (req, res) => {
 
-} = require('../routes');
+    try {
 
-class Server {
-    constructor() {
-        this.app = express();
-        this.port = process.env.PORT || 3000;
-        this.paths = {
-            apps: '/intranet/apps',
-            auth: '/intranet/auth',
-            branches: '/intranet/branches',
-            branchZones: '/intranet/branch-zones',
-            departments: '/intranet/departments',
-            divisions: '/intranet/divisions',
-            permissions: '/intranet/permissions',
-            positions: '/intranet/positions',
-            roles: '/intranet/roles',
-            simulator: '/intranet/simulator',
-            tutorials: '/intranet/tutorials',
-            users: '/intranet/users',
-            safSupplies:'/intranet/supplies',
-            safCategorySupplies: '/intranet/supplies/category',
-            safKit: '/intranet/supplies/kit',
-            safRequest:'/intranet/supplies/request',
-            safRequestRejection: '/intranet/request/rejection',
-            safRequestStatus: '/intranet/request/status',
-            safBranchSupply: '/intranet/branch/supplies'
+        const userId = req.authUserId;
+
+        const appUser = await db.AppUsers.findOne({
+            where: {
+                userId,
+                appId: 2
+            },
+            include: [
+                {
+                    model: db.Role,
+                    as: "role",
+                    attributes: ["name"]
+                }
+            ]
+        });
+
+        const roleName = appUser?.role?.name;
+
+        const whereCondition = {};
+
+        if (roleName === "SUCURSAL") {
+            whereCondition.userId = userId;
         }
 
-        this.middlewares();
-        this.routes();
-        this.jobs();
-    }
-
-    middlewares() {
-        this.app.use(express.static('public'));
-        this.app.use(express.json());
-        this.app.use(cors());
-    }
-
-    routes() {
-        // COR
-        this.app.use(this.paths.apps, apps);
-        this.app.use(this.paths.auth, auth);
-        this.app.use(this.paths.branches, branches);
-        this.app.use(this.paths.branchZones, branchZones);
-        this.app.use(this.paths.departments, departments);
-        this.app.use(this.paths.divisions, divisions);
-        this.app.use(this.paths.permissions, permissions);
-        this.app.use(this.paths.positions, positions);
-        this.app.use(this.paths.roles, roles);
-        this.app.use(this.paths.tutorials, tutorials);
-        this.app.use(this.paths.users, users);
-        //SAFETY
-        this.app.use(this.paths.safSupplies, safSupplies);
-        this.app.use(this.paths.safCategorySupplies, safCategorySupplies);
-        this.app.use(this.paths.safKit, safKit);
-        this.app.use(this.paths.safRequest, safRequest);
-        this.app.use(this.paths.safRequestRejection, safRequestRejection);
-        this.app.use(this.paths.safRequestStatus, safRequestStatus);
-        this.app.use(this.paths.safBranchSupply, safBranchSupply);
-
-    }
-
-    jobs() {
-        initJobs();
-    }
-
-    listen() {
-        this.app.listen(this.port, () => {
-            console.log(`Application running on port: ${this.port}`);
+        const requests = await db.SafRequest.findAll({
+            where: whereCondition,
+            include: [
+                {
+                    model: db.User,
+                    as: 'user',
+                    attributes: ["associateNumber", "fullName"]
+                },
+                {
+                    model: db.Branch,
+                    as: 'branch',
+                    attributes: ["id", "name"]
+                },
+                {
+                    model: db.SafRequestStatus,
+                    as: 'status',
+                    attributes: ["id", "name"]
+                },
+                {
+                    model: db.SafRequestRejection,
+                    as: 'rejection',
+                    attributes: ["id", "name"]
+                },
+                {
+                    model: db.SafRequestSupply,
+                    as: 'requestSupplies',
+                    include: [
+                        {
+                            model: db.SafSupply,
+                            as: 'supply',
+                            attributes: ['id', 'name']
+                        }
+                    ]
+                }
+            ]
         });
-    }
-}
 
-module.exports = Server;
+        return res.status(200).json(requests);
+
+    } catch (error) {
+
+        console.log("ERROR getRequest:", error);
+
+        return res.status(500).json({
+            msg: error.message
+        });
+
+    }
+};
+
+const createRequest = async (req, res) => {
+
+    const userId = req.authUserId;
+    const { supplies } = req.body;
+
+    try {
+
+        if (!supplies || supplies.length === 0) {
+            return res.status(400).json({
+                msg: "Debe enviar al menos un insumo"
+            });
+        }
+
+        const user = await db.User.findByPk(userId);
+
+        if (!user) {
+            return res.status(400).json({
+                msg: "Usuario no encontrado"
+            });
+        }
+
+        const newRequest = await db.SafRequest.create({
+            userId,
+            branchId: user.branchId,
+            date: new Date(),
+            statusId: 1
+        });
+
+        await newRequest.reload({
+            include: [
+                {
+                    model: db.User,
+                    as: "user",
+                    attributes: ["fullName"]
+                },
+                {
+                    model: db.Branch,
+                    as: 'branch',
+                    attributes: ["name"]
+                },
+                {
+                    model: db.SafRequestStatus,
+                    as: "status"
+                },
+                {
+                    model: db.SafRequestRejection,
+                    as: 'rejection'
+                }
+            ]
+        });
+
+        const requestDetails = supplies.map((supplyId) => ({
+            requestId: newRequest.id,
+            supplyId
+        }));
+
+        await db.SafRequestSupply.bulkCreate(requestDetails);
+
+        return res.status(201).json({
+            msg: "Solicitud creada correctamente",
+            newRequest
+        });
+
+    } catch (error) {
+
+        return res.status(500).json({
+            msg: error.message
+        });
+
+    }
+};
+
+const getSupplliesByRequestId = async (req, res) => {
+
+    const { id } = req.params;
+
+    try {
+
+        const requestSupplies = await db.SafRequestSupply.findAll({
+            where: { requestId: id },
+            attributes: ['id'],
+            include: [
+                {
+                    model: db.SafSupply,
+                    as: 'supply',
+                    attributes: ['id', 'name']
+                }
+            ]
+        });
+
+        return res.status(200).json(requestSupplies);
+
+    } catch (error) {
+
+        return res.status(500).json({
+            msg: error.message
+        });
+
+    }
+};
+
+const changeRequestStatus = async (req, res) => {
+
+    const { id } = req.params;
+    const { statusId, rejectionId = null, commit = null } = req.body;
+    const userId = req.authUserId;
+
+    try {
+
+        const request = await db.SafRequest.findByPk(id);
+
+        if (!request) {
+            return res.status(404).json({
+                msg: "Solicitud no encontrada"
+            });
+        }
+
+        const appUser = await db.AppUsers.findOne({
+            where: {
+                userId,
+                appId: 2
+            },
+            include: [
+                {
+                    model: db.Role,
+                    as: "role",
+                    attributes: ["name"]
+                }
+            ]
+        });
+
+        const roleName = appUser?.role?.name?.toUpperCase();
+
+        if (roleName === "ADMIN") {
+
+            if (statusId === 5) {
+                request.rejectionId = rejectionId;
+                request.rejectionReason = clearString(commit);
+            }
+
+            request.statusId = statusId;
+
+        }
+
+        else if (roleName === "SUCURSAL") {
+
+            if (statusId === 4 && request.statusId === 1) {
+                request.statusId = 4;
+            }
+
+            else if (statusId === 3 && request.statusId === 4) {
+                request.statusId = 3;
+            }
+
+            else if (statusId === 7 && request.statusId === 2) {
+
+                const supplies = await db.SafRequestSupply.findAll({
+                    where: { requestId: request.id }
+                });
+
+                const kits = supplies.map(s => ({
+                    supplyId: s.supplyId,
+                    branchId: request.branchId,
+                    quantity: 0
+                }));
+
+                await db.SafKit.bulkCreate(kits);
+
+                request.statusId = 7;
+
+            }
+
+            else {
+                return res.status(403).json({
+                    msg: "No tienes permiso para realizar esta acción"
+                });
+            }
+
+        }
+
+        else if (roleName === "TALENTO HUMANO") {
+
+            if (![4, 7].includes(request.statusId)) {
+                return res.status(400).json({
+                    msg: "La solicitud debe estar enviada o confirmada"
+                });
+            }
+
+            if (statusId === 2) {
+                request.statusId = 2;
+            }
+
+            else if (statusId === 5) {
+
+                if (!rejectionId || !commit?.trim()) {
+                    return res.status(400).json({
+                        msg: "Debe seleccionar motivo y comentario"
+                    });
+                }
+
+                request.statusId = 5;
+                request.rejectionId = rejectionId;
+                request.rejectionReason = clearString(commit);
+
+            }
+
+            else if (statusId === 6 && request.statusId === 7) {
+                request.statusId = 6;
+            }
+
+            else {
+                return res.status(403).json({
+                    msg: "No tienes permiso para realizar esta acción"
+                });
+            }
+
+        }
+
+        await request.save();
+
+        await request.reload({
+            include: [
+                {
+                    model: db.User,
+                    as: 'user',
+                    attributes: ["associateNumber", "fullName"]
+                },
+                {
+                    model: db.Branch,
+                    as: 'branch',
+                    attributes: ["id", "name"]
+                },
+                {
+                    model: db.SafRequestStatus,
+                    as: 'status',
+                    attributes: ["id", "name"]
+                },
+                {
+                    model: db.SafRequestRejection,
+                    as: 'rejection',
+                    attributes: ["id", "name"]
+                }
+            ]
+        });
+
+        return res.status(200).json({
+            msg: "Solicitud actualizada correctamente",
+            updatedRequest: request
+        });
+
+    } catch (error) {
+
+        return res.status(500).json({
+            msg: error.message
+        });
+
+    }
+
+};
+
+const updateRequest = async (req, res) => {
+
+    const { id } = req.params;
+    const { supplies } = req.body;
+    const userId = req.authUserId;
+
+    try {
+
+        const request = await db.SafRequest.findByPk(id);
+
+        if (!request) {
+            return res.status(404).json({
+                msg: "Solicitud no encontrada"
+            });
+        }
+
+        if (request.userId !== userId) {
+            return res.status(403).json({
+                msg: "No tienes permiso para actualizar esta solicitud"
+            });
+        }
+
+        await db.SafRequestSupply.destroy({
+            where: { requestId: id }
+        });
+
+        const requestDetails = supplies.map((supplyId) => ({
+            requestId: id,
+            supplyId
+        }));
+
+        await db.SafRequestSupply.bulkCreate(requestDetails);
+
+        await request.reload({
+            include: [
+                {
+                    model: db.User,
+                    as: 'user',
+                    attributes: ["associateNumber", "fullName"]
+                },
+                {
+                    model: db.Branch,
+                    as: 'branch',
+                    attributes: ["id", "name"]
+                },
+                {
+                    model: db.SafRequestStatus,
+                    as: 'status',
+                    attributes: ["id", "name"]
+                },
+                {
+                    model: db.SafRequestRejection,
+                    as: 'rejection',
+                    attributes: ["id", "name"]
+                },
+                {
+                    model: db.SafRequestSupply,
+                    as: 'requestSupplies',
+                    include: [
+                        {
+                            model: db.SafSupply,
+                            as: 'supply',
+                            attributes: [
+                                ["id", "value"],
+                                ["name", "label"]
+                            ]
+                        }
+                    ]
+                }
+            ]
+        });
+
+        return res.status(200).json({
+            msg: "Solicitud actualizada correctamente",
+            updatedRequest: request
+        });
+
+    } catch (error) {
+
+        return res.status(500).json({
+            msg: error.message
+        });
+
+    }
+};
+
+module.exports = {
+    getRequest,
+    createRequest,
+    getSupplliesByRequestId,
+    changeRequestStatus,
+    updateRequest
+};
