@@ -1,257 +1,99 @@
-import { UseRequestContext } from '../../../../context/safety/kit/request/RequestContext';
-import { UseAppContext } from '../../../../context/AppContext';
-import { MaterialReactTable, useMaterialReactTable } from 'material-react-table';
-import Actions from '../../../../components/safety/kit/request/Actions';
-import { getIconStatusId, getStatus } from '../../../../helpers/safety'
-import { MRT_Localization_ES } from 'material-react-table/locales/es';
-import { Segment } from "@mui/icons-material";
-import { useMemo } from 'react';
-import { formatDateString } from '../../../../helpers/shared';
+const express = require('express');
+const cors = require('cors');
+const initJobs = require('../jobs');
 
-const Table = () => {
+const {
+    apps,
+    auth,
+    branches,
+    branchZones,
+    departments,
+    divisions,
+    permissions,
+    positions,
+    roles,
+    tutorials,
+    users,
+    safSupplies,
+    safCategorySupplies,
+    safKit,
+    safRequest,
+    safRequestRejection,
+    safRequestStatus,
+    safBranchSupply
 
-  const { requestList, isFetchingRequestList, initRequestStatus } = UseRequestContext();
-  const { hasRole } = UseAppContext();
+} = require('../routes');
 
-  const filteredRequests = useMemo(() => {
-
-    if (hasRole(["ADMIN"])) {
-      return requestList;
-    }
-
-    if (hasRole(["TALENTO HUMANO"])) {
-      return requestList.filter(req => req.statusId !== 1);
-    }
-
-    return requestList;
-
-  }, [requestList]);
-
-  const statusOptions = useMemo(() => {
-
-    if (!initRequestStatus) return [];
-
-    let statuses = initRequestStatus;
-
-    if (hasRole(["TALENTO HUMANO"])) {
-      statuses = initRequestStatus.filter(
-        (status) => status.label.toUpperCase() !== "CREADA"
-      );
-    }
-
-    const options = statuses.map((status) => ({
-      text: status.label,
-      value: status.label,
-    }));
-
-    return [{ text: "TODOS", value: "" }, ...options];
-
-  }, [initRequestStatus, hasRole]);
-
-  const columns = useMemo(
-    () => [
-      {
-        header: "FECHA",
-        accessorFn: (row) => formatDateString(row?.date),
-      },
-      {
-        header: 'USUARIO',
-        accessorFn: (row) => row?.user?.fullName,
-      },
-      {
-        header: 'SUCURSAL',
-        accessorFn: (row) => row?.branch?.name
-      },
-      {
-        header: 'ESTADO',
-        id: "status",
-        filterVariant: "select",
-        filterSelectOptions: statusOptions,
-        accessorFn: (row) => row.status?.name,
-        Cell: ({ row }) => (
-          <span className={`inline-flex items-center gap-1 px-2 py-1 shadow-md rounded-full font-semibold text-[10px] ${getStatus(row.original.status.id)}`}>
-            {getIconStatusId(row.original.status.id)}
-            {row.original.status.name}
-          </span>
-        )
-      },
-      {
-        header: 'CANCELACIÓN',
-        accessorKey: 'cancellation',
-        Cell: ({ cell }) => cell.getValue()?.name === "",
-      },
-    ],
-    [statusOptions],
-  );
-
-  const table = useMaterialReactTable({
-
-    columns,
-    data: filteredRequests,
-
-    enableColumnActions: false,
-    enableColumnDragging: false,
-    enableColumnFilterModes: false,
-    enableColumnFilters: true,
-    enableColumnPinning: true,
-    enableFacetedValues: true,
-    enableGrouping: true,
-    enableStickyHeader: true,
-    enableTopToolbar: false,
-
-    paginationDisplayMode: "pages",
-    positionToolbarAlertBanner: "bottom",
-    localization: MRT_Localization_ES,
-
-    initialState: {
-      showColumnFilters: true,
-      density: "compact",
-      pagination: { pageSize: 10 },
-      columnPinning: {
-        right: ['mrt-row-actions'],
-      },
-      columnOrder: [
-        'user.fullName',
-        'user.branch.name',
-        'status.name',
-        'cancellation.name',
-      ],
-    },
-
-    state: {
-      isLoading: isFetchingRequestList,
-    },
-
-    muiSearchTextFieldProps: {
-      size: "small",
-      variant: "outlined",
-    },
-
-    muiPaginationProps: {
-      color: "primary",
-      rowsPerPageOptions: [10, 15, 25, 35],
-      shape: "rounded",
-      variant: "outlined",
-      sx: {
-        ".MuiPaginationItem-root": {
-          borderRadius: "50%",
-          "&:hover": {
-            background: "rgba(25, 118, 210,0.2)",
-            color: "#1976d2",
-          },
-        },
-        ".Mui-selected": {
-          backgroundColor: "#1976d2",
-          color: "white",
-        },
-      },
-    },
-
-    displayColumnDefOptions: {
-      'mrt-row-actions': {
-        header: 'ACCIONES'
-      },
-    },
-
-    muiTableHeadCellProps: {
-      sx: {
-        fontSize: "0.75rem",
-      },
-    },
-
-    muiTableBodyCellProps: ({ row, column }) => {
-
-      if (column.id !== "mrt-row-actions") {
-        return {
-          sx: { fontSize: "0.75rem" }
-        };
-      }
-
-      const statusId = row.original.statusId;
-
-      const isAccepted = statusId === 2;
-      const isCancelled = statusId === 3;
-      const isSent = statusId === 4;
-
-      if (hasRole(["SUCURSAL"])) {
-
-        if (isCancelled || statusId === 7 || statusId === 6) {
-          return {
-            sx: {
-              pointerEvents: "none",
-              opacity: 0.4,
-              fontSize: "0.75rem"
-            }
-          };
+class Server {
+    constructor() {
+        this.app = express();
+        this.port = process.env.PORT || 3000;
+        this.paths = {
+            apps: '/intranet/apps',
+            auth: '/intranet/auth',
+            branches: '/intranet/branches',
+            branchZones: '/intranet/branch-zones',
+            departments: '/intranet/departments',
+            divisions: '/intranet/divisions',
+            permissions: '/intranet/permissions',
+            positions: '/intranet/positions',
+            roles: '/intranet/roles',
+            simulator: '/intranet/simulator',
+            tutorials: '/intranet/tutorials',
+            users: '/intranet/users',
+            safSupplies:'/intranet/supplies',
+            safCategorySupplies: '/intranet/supplies/category',
+            safKit: '/intranet/supplies/kit',
+            safRequest:'/intranet/supplies/request',
+            safRequestRejection: '/intranet/request/rejection',
+            safRequestStatus: '/intranet/request/status',
+            safBranchSupply: '/intranet/branch/supplies'
         }
 
-      }
+        this.middlewares();
+        this.routes();
+        this.jobs();
+    }
 
-      if (hasRole(["TALENTO HUMANO"])) {
+    middlewares() {
+        this.app.use(express.static('public'));
+        this.app.use(express.json());
+        this.app.use(cors());
+    }
 
-        if (!isSent && statusId !== 7) {
-          return {
-            sx: {
-              pointerEvents: "none",
-              opacity: 0.4,
-              fontSize: "0.75rem"
-            }
-          };
-        }
+    routes() {
+        // COR
+        this.app.use(this.paths.apps, apps);
+        this.app.use(this.paths.auth, auth);
+        this.app.use(this.paths.branches, branches);
+        this.app.use(this.paths.branchZones, branchZones);
+        this.app.use(this.paths.departments, departments);
+        this.app.use(this.paths.divisions, divisions);
+        this.app.use(this.paths.permissions, permissions);
+        this.app.use(this.paths.positions, positions);
+        this.app.use(this.paths.roles, roles);
+        this.app.use(this.paths.tutorials, tutorials);
+        this.app.use(this.paths.users, users);
+        //SAFETY
+        this.app.use(this.paths.safSupplies, safSupplies);
+        this.app.use(this.paths.safCategorySupplies, safCategorySupplies);
+        this.app.use(this.paths.safKit, safKit);
+        this.app.use(this.paths.safRequest, safRequest);
+        this.app.use(this.paths.safRequestRejection, safRequestRejection);
+        this.app.use(this.paths.safRequestStatus, safRequestStatus);
+        this.app.use(this.paths.safBranchSupply, safBranchSupply);
 
-      }
+    }
 
-      return {
-        sx: { fontSize: "0.75rem" }
-      };
+    jobs() {
+        initJobs();
+    }
 
-    },
+    listen() {
+        this.app.listen(this.port, () => {
+            console.log(`Application running on port: ${this.port}`);
+        });
+    }
+}
 
-    muiFilterTextFieldProps: {
-      size: "small",
-      InputProps: {
-        sx: {
-          fontSize: "0.75rem",
-        },
-        endAdornment: null,
-      },
-    },
-
-    muiTablePaperProps: {
-      sx: {
-        boxShadow: "0px 5px 5px rgba(0, 0, 0, 0.1)",
-      },
-    },
-
-    enableRowActions: true,
-    positionActionsColumn: "last",
-
-    renderRowActionMenuItems: ({ closeMenu, row }) => [
-      <Actions
-        key={row.id}
-        row={row}
-        closeMenu={closeMenu}
-      />,
-    ],
-
-  });
-
-  const totalRecords = table.getFilteredRowModel().rows.length;
-
-  return (
-    <div className="relative">
-
-      <MaterialReactTable table={table} />
-
-      <div className="absolute p-4 text-sm rounded-r-lg -mt-14 z-10 flex justify-center items-center gap-2">
-        <Segment fontSize="small" />
-        <span className="text-[12px]">
-          {`${totalRecords.toLocaleString()} registro${totalRecords !== 1 ? "s" : ""}`}
-        </span>
-      </div>
-
-    </div>
-  );
-};
-
-export default Table;
+module.exports = Server;
