@@ -1,37 +1,41 @@
-import { Card } from "../../../../components/shared";
-import { UseRequestContext } from "../../../../context/safety/kit/request/RequestContext";
+import { Button, TitleCard } from "../../../../components/shared";
+import { AddCircle, FactCheck } from "@mui/icons-material";
+import { useNavigate } from "react-router-dom";
+import { UseAppContext } from "../../../../context/AppContext";
+import Table from "./Table";
 
-const RejectionDetails = () => {
+const Index = () => {
+  const goTo = useNavigate();
+  const { authUser } = UseAppContext();
+  console.log("authUser", authUser);
 
-  const { selectedRequest } = UseRequestContext();
+  const role = authUser?.user?.apps?.[0]?.role;
+  const description =
+    role === "SUCURSAL"
+      ? "Gestión de mis solicitudes"
+      : "Gestión de solicitudes de botiquines por sucursal";
 
   return (
-    <Card>
-      <div className="space-y-4 text-sm">
-        <div>
-          <div className="flex flex-col items-center gap-8 text-xl">
-            <h3 className="font-semibold text-black uppercase">Detalles del rechazo</h3>
-            <hr className="w-full" />
-          </div>
-          <div className="flex flex-col gap-2">
-            <h3 className="font-semibold text-gray-700 uppercase">Motivo de rechazo:</h3>
-            <hr className="w-full" />
-          </div>
-          <div>{selectedRequest?.rejection?.name}</div>
-        </div>
-        <div className="space-y-6 ">
-          <div className="flex flex-col gap-2">
-            <h3 className="font-semibold text-gray-700 uppercase">Descripción:</h3>
-            <hr className="w-full" />
-          </div>
-          <div>{selectedRequest?.rejectionReason}</div>
-        </div>
-        <div className="flex justify-end">
-        </div>
-      </div>
-    </Card>
-  );
+    <div className="space-y-6">
+      <TitleCard
+        title="SOLICITUDES"
+        desc={description}
+        icon={<FactCheck />}
+      >
+        {role !== "TALENTO HUMANO" && (
+          <Button
+            variant="contained"
+            size="small"
+            text={"Crear Solicitud"}
+            startIcon={<AddCircle sx={{ fontSize: 16 }} />}
+            onClick={() => goTo("/seguridad/botiquin/solicitudes/crear")}
+          />
+        )}
+      </TitleCard>
 
+      <Table />
+    </div>
+  );
 };
 
-export default RejectionDetails;
+export default Index;
