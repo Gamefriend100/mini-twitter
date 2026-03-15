@@ -1,13 +1,33 @@
 'use strict';
-const {
-  Model
-} = require('sequelize');
+const { Model } = require('sequelize');
+
 module.exports = (sequelize, DataTypes) => {
-  class SafRequestRejection  extends Model {
+  class SafRequest extends Model {
     static associate(models) {
-      SafRequestRejection.hasMany(models.SafRequest, {
+
+      SafRequest.belongsTo(models.User, {
+        foreignKey: 'userId',
+        as: 'user'
+      });
+
+      SafRequest.belongsTo(models.Branch, {
+        foreignKey: 'branchId',
+        as: 'branch'
+      });
+
+      SafRequest.belongsTo(models.SafRequestStatus, {
+        foreignKey: 'statusId',
+        as: 'status'
+      });
+
+      SafRequest.belongsTo(models.SafRequestRejection, {
         foreignKey: 'rejectionId',
-        as: 'requests'
+        as: 'rejection'
+      });
+
+      SafRequest.hasMany(models.SafRequestSupply, {
+        foreignKey: 'requestId',
+        as: 'requestSupplies'
       });
     }
 
@@ -16,12 +36,19 @@ module.exports = (sequelize, DataTypes) => {
       return data;
     }
   }
-  SafRequestRejection.init({
-    name: DataTypes.STRING
+
+  SafRequest.init({
+    userId: DataTypes.INTEGER,
+    branchId: DataTypes.INTEGER,
+    date: DataTypes.DATEONLY,
+    statusId: DataTypes.INTEGER,
+    rejectionId: DataTypes.INTEGER,
+    rejectionReason: DataTypes.STRING,
   }, {
     sequelize,
-    modelName: 'SafRequestRejection',
-    tableName: 'saf_request_rejections'
+    modelName: 'SafRequest',
+    tableName: 'saf_requests'
   });
-  return SafRequestRejection;
+
+  return SafRequest;
 };
