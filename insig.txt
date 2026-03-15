@@ -1,51 +1,89 @@
-import { Delete } from "@mui/icons-material";
-import { IconButton } from "@mui/material";
-import { UseRequestContext } from "../../../../context/safety/kit/request/RequestContext";
-import { NotificationStructure } from "../../../shared";
+import { useQuery } from "@tanstack/react-query";
+import { fetchData } from "../../../accions";
 
-const ItemSupplyRequest = ({ supplyRequest, readOnly }) => {
-  const { setModalRequest, setSelectedSupplies, selectedSupplies } = UseRequestContext();
-
-  const handleDelete = () => {
-    setSelectedSupplies(
-      selectedSupplies.filter((supply) => supply !== supplyRequest.value)
-    );
+export const useGetSupplies = (token) => {
+  const supplies = useQuery({
+    queryKey: ["supplies"],
+    queryFn: () => fetchData("supplies", token),
+    refetchOnWindowFocus: false,
+    enabled: !!token,
+  });
+  return {
+    supplies,
   };
-
-  const showConfirmation = () => {
-    setModalRequest({
-      show: true,
-      children: (
-        <NotificationStructure
-          title="Eliminar Solicitud"
-          action={handleDelete}
-          onCancel={() => setModalRequest({ show: false })}
-        >
-          <p>Estas apunto de eliminar de tu solicitud</p>
-          <p className="font-semibold">{supplyRequest.label}</p>
-          <p>¿Deseas continuar con esta accion?</p>
-        </NotificationStructure>
-      )
-    });
-  };
-
-  return (
-    <div className="flex justify-between py-2 px-3 mb-2 border shadow-md">
-      <div>
-        <p>{supplyRequest.label}</p>
-        <p className="text-xs font-semibold">{supplyRequest?.category?.name}</p>
-      </div>
-
-      {!readOnly && (
-        <IconButton
-          onClick={showConfirmation}
-          disabled={selectedSupplies.length === 1}
-        >
-          <Delete fontSize="small" sx={{ "&:hover": { color: "#ef4444" } }} />
-        </IconButton>
-      )}
-    </div>
-  );
 };
 
-export default ItemSupplyRequest;
+export const useGetCategorySupplies = (token) => {
+  const categories = useQuery({
+    queryKey: ["categorySupplies"],
+    queryFn: () => fetchData("supplies/category", token),
+    refetchOnWindowFocus: false,
+    enabled: !!token,
+  });
+
+  return {
+    categories,
+  };
+};
+
+export const useGetKit = (branchId, token) => {
+  const kit = useQuery({
+    queryKey: ["kits", branchId],
+    queryFn: () => fetchData(`supplies/kit/${branchId}`, token),
+    refetchOnWindowFocus: false,
+    enabled: !!token && !!branchId
+  })
+
+  return {
+    kit
+  }
+}
+
+export const useGetRequest = (token) => {
+  const request = useQuery({
+    queryKey: ["request"],
+    queryFn: () => fetchData("supplies/request", token),
+    refetchOnWindowFocus: false,
+    enabled: !!token
+  })
+  return {
+    request
+  }
+}
+
+export const useGetSuppliesByRequestId = (requestId, token) => {
+  const requestSuppliesId = useQuery({
+    queryKey: ["requestSupplies", requestId],
+    queryFn: () => fetchData(`supplies/request/${requestId}`, token),
+    refetchOnWindowFocus: false,
+    enabled: !!token && !!requestId
+  });
+
+  return {
+    requestSuppliesId
+  };
+};
+
+export const useGetRequestRejection = (token) => {
+  const requestRejection = useQuery({
+    queryKey: ["rejection"],
+    queryFn: () => fetchData(`request/rejection`, token),
+    refetchOnWindowFocus: false,
+    enabled: !!token
+  });
+  return {
+    requestRejection
+  };
+};
+
+export const useGetRequestStatus = (token) => {
+  const requestStatus = useQuery({
+    queryKey: ["requestStatus"],
+    queryFn: () => fetchData(`request/status`, token),
+    refetchOnWindowFocus: false,
+    enable: !!token
+  });
+  return {
+    requestStatus
+  };
+};
