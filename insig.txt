@@ -1,54 +1,71 @@
-'use strict';
-const { Model } = require('sequelize');
+import {AssignmentTurnedIn, EditNote, FactCheck, LocalHospital, MedicalServices, NotInterested, SaveAs, ThumbUpAlt, Vaccines} from "@mui/icons-material";
+import { CollapseList } from "../../components/shared";
+import { UseAppContext } from "../../context/AppContext";
 
-module.exports = (sequelize, DataTypes) => {
-  class SafRequest extends Model {
-    static associate(models) {
+const RoutesKit = () => {
+  const { currentApp } = UseAppContext();
+  const role = currentApp?.role;
 
-      SafRequest.belongsTo(models.User, {
-        foreignKey: 'userId',
-        as: 'user'
-      });
-
-      SafRequest.belongsTo(models.Branch, {
-        foreignKey: 'branchId',
-        as: 'branch'
-      });
-
-      SafRequest.belongsTo(models.SafRequestStatus, {
-        foreignKey: 'statusId',
-        as: 'status'
-      });
-
-      SafRequest.belongsTo(models.SafRequestRejection, {
-        foreignKey: 'rejectionId',
-        as: 'rejection'
-      });
-
-      SafRequest.hasMany(models.SafRequestSupply, {
-        foreignKey: 'requestId',
-        as: 'requestSupplies'
-      });
+  const routesKit = [
+    {
+      url: "/seguridad/botiquin/insumos",
+      name: "Insumos",
+      icon: <Vaccines fontSize="small" />
+    },
+    {
+      url: "/seguridad/botiquin/sucursal",
+      name: role === "SUCURSAL" ? "My Botiquín" : "Botiquín por sucursal",
+      icon: <LocalHospital fontSize="small" />
+    },
+    {
+      url: "/seguridad/botiquin/solicitudes",
+      name: "Solicitudes",
+      icon: <FactCheck fontSize="small" />
     }
+  ];
 
-    toJSON() {
-      const { createdAt, updatedAt, ...data } = this.get();
-      return data;
-    }
-  }
+  const childrens =
+    role === "SUCURSAL"
+      ? routesKit.filter(r => r.url !== "/seguridad/botiquin/insumos")
+      : routesKit;
 
-  SafRequest.init({
-    userId: DataTypes.INTEGER,
-    branchId: DataTypes.INTEGER,
-    date: DataTypes.DATEONLY,
-    statusId: DataTypes.INTEGER,
-    rejectionId: DataTypes.INTEGER,
-    rejectionReason: DataTypes.STRING,
-  }, {
-    sequelize,
-    modelName: 'SafRequest',
-    tableName: 'saf_requests'
-  });
-
-  return SafRequest;
+  return (
+    <CollapseList
+      name="BOTIQUIN"
+      icon={<MedicalServices fontSize="small" />}
+      childrens={childrens}
+    />
+  );
 };
+
+export const routes = [
+  {
+    element: <RoutesKit />
+  }
+];
+
+export const getStatus = (id) => {
+  switch (id) {
+    case 1: return "bg-gray-400 text-gray-900"
+    case 2: return "bg-green-400 text-green-900"
+    case 3: return "bg-red-400 text-red-900"
+    case 4: return "bg-yellow-400 text-yellow-900"
+    case 5: return "bg-blue-400 text-blue-900"
+    case 6: return "bg-purple-400 text-purple-900"
+    case 7: return "bg-green-400 text-green-900"
+    default: ""
+  }
+};
+
+export const getIconStatusId = (id) => {
+  switch (id) {
+    case 1: return <EditNote sx={{ fontSize: "15px"}} />
+    case 2: return <SaveAs sx={{ fontSize: "15px"}} />
+    case 3: return <NotInterested sx={{ fontSize: "15px"}} />
+    case 4: return <FactCheck sx={{ fontSize: "15px"}} />
+    case 5: return <NotInterested sx={{ fontSize: "15px"}} />
+    case 6: return <AssignmentTurnedIn sx={{ fontSize: "15px"}} />
+    case 7: return <ThumbUpAlt sx={{ fontSize: "15px"}} />
+    default: null
+  }
+}
