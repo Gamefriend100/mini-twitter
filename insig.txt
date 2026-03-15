@@ -1,78 +1,111 @@
-import { useGetRequest, useGetRequestRejection, useGetRequestStatus, useGetSuppliesByRequestId } from "../../../../hooks/safety/kit";
-import { createContext, useContext, useEffect, useState } from "react";
-import { UseAppContext } from "../../../AppContext";
+import { BarCard, Button, Empty, notifyError, TitleCard, notifySuccess } from "../../../../components/shared";
+import ItemSupplyRequest from "../../../../components/safety/kit/request/ItemSupplyRequest"
+import { UseRequestContext } from "../../../../context/safety/kit/request/RequestContext";
+import { UseKitContext } from "../../../../context/safety/kit/KitContext";
+import { UseAppContext } from "../../../../context/AppContext";
+import { AddCircle, NoteAdd } from "@mui/icons-material";
+import { useNavigate } from "react-router-dom";
+import { appApi } from "../../../../api";
+import { useEffect } from "react";
+import Form from "./Form";
 
-const RequestContext = createContext();
+const url = "/seguridad/botiquin/solicitudes";
 
-export const UseRequestContext = () => {
-  return useContext(RequestContext);
-};
-
-export const RequestProvider = ({ children }) => {
+const Create = () => {
+  const { setModalRequest, selectedSupplies, setSelectedSupplies, requestList, setRequestList } = UseRequestContext();
   const { authUserToken } = UseAppContext();
-  const [modalRequest, setModalRequest] = useState({ show: false });
-  const [selectedSupplies, setSelectedSupplies] = useState([]);
-  const [requestList, setRequestList] = useState([]);
-  const [selectedRequest, setSelectedRequest] = useState(null);
-
-  const {
-    data: initRequestStatus,
-    isFetching: isFetchingRequestStatus,
-    isSuccess: isSucessRequestStatus,
-  } = useGetRequestStatus(authUserToken).requestStatus;
-
-
-  const {
-    data: initRequestRejection,
-    isFetching: isFetchingRequestRejection,
-    isSuccess: isSuccessRequestRejection
-  } = useGetRequestRejection(authUserToken).requestRejection;
-
-  const {
-    data: initSuppliesByRequestId,
-    isFetching: isFetchingSuppliesByRequestId,
-    isSuccess: isSuccessSuppliesByRequestId
-  } = useGetSuppliesByRequestId(selectedRequest?.id, authUserToken).requestSuppliesId;
-
-  const {
-    data: initRequestList,
-    isFetching: isFetchingRequestList,
-    isSuccess: isSuccessRequestList
-  } = useGetRequest(authUserToken).request;
-
-  const addSupply = (supplyId) => {
-    setSelectedSupplies(prev => [...prev, supplyId]);
-  };
+  const { supplies } = UseKitContext();
+  const goTo = useNavigate();
 
   useEffect(() => {
-    if (!isFetchingRequestList && isSuccessRequestList) {
-      setRequestList(initRequestList)
+    return () => {
+      setSelectedSupplies([]);
     }
-  }, [isFetchingRequestList]);
+  }, []);
+
+ const handleSubmit = async () => {
+  try {
+
+    if (selectedSupplies.length === 0) {
+      notifyError("Debes seleccionar al menos un insumo");
+      return;
+    }
+
+    const payload = {
+      supplies: selectedSupplies
+    };
+
+    const { data } = await appApi.post(
+      "/intranet/supplies/request/create",
+      payload,
+      {
+        headers: { Authorization: `Bearer ${authUserToken}` },
+      }
+    );
+
+    const newLocalData = [data.newRequest, ...requestList];
+    setRequestList(newLocalData);
+
+    notifySuccess(data.msg);
+    goTo(url);
+
+  } catch (error) {
+
+    notifyError(
+      error?.response?.data?.msg || "Error al crear la solicitud"
+    );
+
+  }
+};
+
+  const handleClick = () => {
+    setModalRequest({ show: true, children: <Form /> })
+  }
 
   return (
-    <RequestContext.Provider
-      value={{
-        modalRequest,
-        setModalRequest,
-        selectedSupplies,
-        setSelectedSupplies,
-        addSupply,
-        requestList,
-        isFetchingRequestList,
-        setRequestList,
-        selectedRequest,
-        setSelectedRequest,
-        initSuppliesByRequestId,
-        isFetchingSuppliesByRequestId,
-        isSuccessSuppliesByRequestId,
-        initRequestRejection,
-        isFetchingRequestRejection,
-        isSuccessRequestRejection,
-        initRequestStatus
-      }}
-    >
-      {children}
-    </RequestContext.Provider>
+    <div className="space-y-6">
+      <TitleCard
+        title="CREAR SOLICITUD"
+        desc="Agrega los insumos que deseas solicitar"
+        url={url}
+      >
+
+        <Button
+          variant="contained"
+          size="small"
+          classes={{ background: "#16a34a" }}
+          text="Crear"
+          icon={<NoteAdd sx={{ fontSize: 16 }} />}
+          action={handleSubmit}
+          disabled={!selectedSupplies.length}
+        />
+
+      </TitleCard>
+      <div>
+        <BarCard
+          noPadding
+          buttons={
+            <Button
+              variant="contained"
+              size="small"
+              text={"Agregar Insumo"}
+              startIcon={<AddCircle sx={{ fontSize: 16 }} />}
+              onClick={handleClick}
+            >
+            </Button>
+          }
+        >
+          <div className="p-10">
+            {!selectedSupplies.length ? (<Empty msg="No hay insumos solicitados" />)
+              : (supplies?.filter(supply => selectedSupplies.includes(supply.value)
+              ).map(supply => (<ItemSupplyRequest key={supply.value} supplyRequest={supply} />
+              ))
+              )}
+          </div>
+        </BarCard>
+      </div>
+    </div>
   );
 };
+
+export default Create;
