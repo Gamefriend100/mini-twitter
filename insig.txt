@@ -1,89 +1,100 @@
-import { useQuery } from "@tanstack/react-query";
-import { fetchData } from "../../../accions";
+import { Button, Card, MUIAutocomplete, notifyError, notifySuccess } from "../../../../components/shared";
+import { UseRequestContext } from "../../../../context/safety/kit/request/RequestContext";
+import { UseAppContext } from "../../../../context/AppContext";
+import { NotInterested } from "@mui/icons-material";
+import { appApi } from "../../../../api";
+import { useState } from "react";
 
-export const useGetSupplies = (token) => {
-  const supplies = useQuery({
-    queryKey: ["supplies"],
-    queryFn: () => fetchData("supplies", token),
-    refetchOnWindowFocus: false,
-    enabled: !!token,
-  });
-  return {
-    supplies,
+const Rejection = () => {
+
+  const {
+    initRequestRejection,
+    selectedRequest,
+    setRequestList,
+    setModalRequest
+  } = UseRequestContext();
+
+  const { authUserToken } = UseAppContext();
+
+  const [rejection, setRejection] = useState(null);
+  const [commit, setCommit] = useState("");
+
+  const handleReject = async () => {
+
+    try {
+
+      const { data } = await appApi.post(
+        `/intranet/supplies/request/status/${selectedRequest.id}`,
+        {
+          statusId: 5,
+          rejectionId: rejection,
+          commit: commit
+        },
+        {
+          headers: { Authorization: `Bearer ${authUserToken}` },
+        }
+      );
+
+      setRequestList(prev =>
+        prev.map(req =>
+          req.id === selectedRequest.id
+            ? data.updatedRequest
+            : req
+        )
+      );
+
+      notifySuccess(data.msg);
+
+      setModalRequest({ show: false });
+
+    } catch (error) {
+
+      notifyError(
+        error?.response?.data?.msg || "Error al rechazar la solicitud"
+      );
+
+    }
   };
+
+  return (
+    <Card>
+      <div className="space-y-6">
+
+        <div className="flex flex-col items-center gap-2">
+          <h3 className="font-semibold text-gray-700 uppercase">
+            Rechazo de insumo
+          </h3>
+          <hr className="w-full" />
+        </div>
+
+        <MUIAutocomplete
+          required
+          title="Motivo de rechazo"
+          options={initRequestRejection}
+          value={rejection}
+          handleChange={({ value }) => setRejection(value)}
+        />
+
+        <textarea
+          className="w-full border border-gray-300 p-2 rounded mb-2 focus:border-blue-500 outline-none"
+          value={commit}
+          onChange={(event) => { setCommit(event.target.value) }}
+        />
+
+        <div className="flex justify-end">
+          <Button
+            variant="contained"
+            size="small"
+            text="Rechazar"
+            startIcon={<NotInterested sx={{ fontSize: 16 }} />}
+            onClick={handleReject}
+            disabled={!rejection || !commit.trim()}
+          />
+        </div>
+
+      </div>
+    </Card>
+  );
 };
 
-export const useGetCategorySupplies = (token) => {
-  const categories = useQuery({
-    queryKey: ["categorySupplies"],
-    queryFn: () => fetchData("supplies/category", token),
-    refetchOnWindowFocus: false,
-    enabled: !!token,
-  });
-
-  return {
-    categories,
-  };
-};
-
-export const useGetKit = (branchId, token) => {
-  const kit = useQuery({
-    queryKey: ["kits", branchId],
-    queryFn: () => fetchData(`supplies/kit/${branchId}`, token),
-    refetchOnWindowFocus: false,
-    enabled: !!token && !!branchId
-  })
-
-  return {
-    kit
-  }
-}
-
-export const useGetRequest = (token) => {
-  const request = useQuery({
-    queryKey: ["request"],
-    queryFn: () => fetchData("supplies/request", token),
-    refetchOnWindowFocus: false,
-    enabled: !!token
-  })
-  return {
-    request
-  }
-}
-
-export const useGetSuppliesByRequestId = (requestId, token) => {
-  const requestSuppliesId = useQuery({
-    queryKey: ["requestSupplies", requestId],
-    queryFn: () => fetchData(`supplies/request/${requestId}`, token),
-    refetchOnWindowFocus: false,
-    enabled: !!token && !!requestId
-  });
-
-  return {
-    requestSuppliesId
-  };
-};
-
-export const useGetRequestRejection = (token) => {
-  const requestRejection = useQuery({
-    queryKey: ["rejection"],
-    queryFn: () => fetchData(`request/rejection`, token),
-    refetchOnWindowFocus: false,
-    enabled: !!token
-  });
-  return {
-    requestRejection
-  };
-};
-
-export const useGetRequestStatus = (token) => {
-  const requestStatus = useQuery({
-    queryKey: ["requestStatus"],
-    queryFn: () => fetchData(`request/status`, token),
-    refetchOnWindowFocus: false,
-    enable: !!token
-  });
-  return {
-    requestStatus
-  };
-};
+export default Rejection;
