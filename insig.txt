@@ -1,76 +1,27 @@
 'use strict';
-/** @type {import('sequelize-cli').Migration} */
-module.exports = {
-  async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('saf_requests', {
-      id: {
-        allowNull: false,
-        autoIncrement: true,
-        primaryKey: true,
-        type: Sequelize.INTEGER
-      },
+const {
+  Model
+} = require('sequelize');
+module.exports = (sequelize, DataTypes) => {
+  class SafRequestRejection  extends Model {
+    static associate(models) {
+      SafRequestRejection.hasMany(models.SafRequest, {
+        foreignKey: 'rejectionId',
+        as: 'requests'
+      });
+    }
 
-      userId: {
-        type: Sequelize.INTEGER,
-        references: {
-          model: 'cor_users',
-          key: 'id'
-        },
-        onDelete: 'SET NULL',
-        onUpdate: 'CASCADE',
-      },
-
-      branchId: {
-        type: Sequelize.INTEGER,
-        references: {
-          model: 'cor_branches',
-          key: 'id'
-        },
-        onDelete: 'SET NULL',
-        onUpdate: 'CASCADE',
-      },
-
-      date: {
-        type: Sequelize.DATEONLY
-      },
-
-      statusId: {
-        type: Sequelize.INTEGER,
-        references: {
-          model: 'saf_request_status',
-          key: 'id'
-        },
-        onUpdate: 'CASCADE',
-        onDelete: 'SET NULL',
-      },
-
-      rejectionId: {
-        type: Sequelize.INTEGER,
-        references: {
-          model: 'saf_request_rejections',
-          key: 'id'
-        },
-        onUpdate: 'CASCADE',
-        onDelete: 'SET NULL',
-      },
-
-      rejectionReason: {
-        type: Sequelize.STRING,
-      },
-
-      createdAt: {
-        allowNull: false,
-        type: Sequelize.DATE
-      },
-
-      updatedAt: {
-        allowNull: false,
-        type: Sequelize.DATE
-      }
-    });
-
-  },
-  async down(queryInterface, Sequelize) {
-    await queryInterface.dropTable('saf_requests');
+    toJSON() {
+      const { createdAt, updatedAt, ...data } = this.get();
+      return data;
+    }
   }
+  SafRequestRejection.init({
+    name: DataTypes.STRING
+  }, {
+    sequelize,
+    modelName: 'SafRequestRejection',
+    tableName: 'saf_request_rejections'
+  });
+  return SafRequestRejection;
 };
