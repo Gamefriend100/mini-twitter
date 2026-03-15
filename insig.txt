@@ -1,17 +1,54 @@
-const safSupplies = require('./supply.routes');
-const safCategorySupplies = require('./category-supplies.routes');
-const safKit = require('./kit.routes');
-const safRequest = require('./request/request.routes');
-const safRequestRejection = require('./request-rejection.routes');
-const safRequestStatus = require('./request-status.routes');
-const safBranchSupply = require('./branch/branch-supply.routes');
+'use strict';
+const { Model } = require('sequelize');
 
-module.exports = {
-  safSupplies,
-  safCategorySupplies,
-  safKit,
-  safRequest,
-  safRequestRejection,
-  safRequestStatus,
-  safBranchSupply
+module.exports = (sequelize, DataTypes) => {
+  class SafRequest extends Model {
+    static associate(models) {
+
+      SafRequest.belongsTo(models.User, {
+        foreignKey: 'userId',
+        as: 'user'
+      });
+
+      SafRequest.belongsTo(models.Branch, {
+        foreignKey: 'branchId',
+        as: 'branch'
+      });
+
+      SafRequest.belongsTo(models.SafRequestStatus, {
+        foreignKey: 'statusId',
+        as: 'status'
+      });
+
+      SafRequest.belongsTo(models.SafRequestRejection, {
+        foreignKey: 'rejectionId',
+        as: 'rejection'
+      });
+
+      SafRequest.hasMany(models.SafRequestSupply, {
+        foreignKey: 'requestId',
+        as: 'requestSupplies'
+      });
+    }
+
+    toJSON() {
+      const { createdAt, updatedAt, ...data } = this.get();
+      return data;
+    }
+  }
+
+  SafRequest.init({
+    userId: DataTypes.INTEGER,
+    branchId: DataTypes.INTEGER,
+    date: DataTypes.DATEONLY,
+    statusId: DataTypes.INTEGER,
+    rejectionId: DataTypes.INTEGER,
+    rejectionReason: DataTypes.STRING,
+  }, {
+    sequelize,
+    modelName: 'SafRequest',
+    tableName: 'saf_requests'
+  });
+
+  return SafRequest;
 };
