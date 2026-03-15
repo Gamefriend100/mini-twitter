@@ -1,57 +1,27 @@
 import { UseRequestContext } from "../../../../context/safety/kit/request/RequestContext";
-import { UseKitContext } from "../../../../context/safety/kit/KitContext"
-import { Button, MUIAutocomplete } from "../../../../components/shared"
-import { AddCircle } from "@mui/icons-material";
-import { useEffect, useState } from "react";
+import { Modal } from "../../../../components/shared";
+import { Routes, Route } from "react-router-dom";
+import Request from './Request';
+import Create from "./Create";
+import Details from "./Details";
+import Rejection from "./Rejection";
 
-const Form = () => {
-    const { supplies, initCategories } = UseKitContext();
-    const { selectedSupplies, addSupply, setModalRequest } = UseRequestContext();
-    const [selectedSupply, setSelectedSupply,] = useState(null);
-    const [selectedCategory, setSelectedCategory] = useState(null);
-    const [currentSupplies, setCurrentSupplies] = useState([])
+function Index() {
+  const { modalRequest, setModalRequest } = UseRequestContext();
 
-    useEffect(() => {
-        setCurrentSupplies(
-            supplies?.filter(supply => supply.categoryId === selectedCategory)
-                .filter(supply => !selectedSupplies.includes(supply.value))
-        )
-    }, [selectedCategory]);
-
-    return (
-        <div className="p-8 space-y-6">
-            <div className="flex flex-col items-center gap-2">
-                <h3 className="font-semibold text-gray-700 uppercase">Selecciona los insumos a solicitar</h3>
-                <hr className="w-full" />
-            </div>
-
-            <MUIAutocomplete
-                required
-                title="Categoria"
-                options={initCategories ?? []}
-                value={selectedCategory}
-                handleChange={({ value }) => setSelectedCategory(value)}
-            />
-            <MUIAutocomplete
-                required
-                title="Insumo"
-                options={currentSupplies}
-                disabled={!selectedCategory}
-                value={selectedSupply}
-                handleChange={({ value }) => setSelectedSupply(value)}
-            />
-            <div className="flex justify-end">
-                <Button
-                    text="Agregar"
-                    icon={<AddCircle fontSize="small" />}
-                    disabled={!selectedSupply}
-                    action={() => {
-                        addSupply(selectedSupply); setModalRequest({ show: false });
-                    }}
-                />
-            </div>
-        </div>
-    )
+  return (
+    <>
+      <div>
+        <Routes>
+          <Route path="/" element={<Request />} />
+          <Route path="/crear" element={<Create />} />
+          <Route path="/detalles" element={<Details />}/>
+          <Route path="/rechazar" element={<Rejection />} />
+        </Routes>
+      </div>
+      <Modal infoModal={modalRequest} setInfoModal={setModalRequest} />
+    </>
+  );
 }
 
-export default Form
+export default Index;
