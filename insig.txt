@@ -1,27 +1,100 @@
+import { Button, Card, MUIAutocomplete, notifyError, notifySuccess } from "../../../../components/shared";
 import { UseRequestContext } from "../../../../context/safety/kit/request/RequestContext";
-import { Modal } from "../../../../components/shared";
-import { Routes, Route } from "react-router-dom";
-import Request from './Request';
-import Create from "./Create";
-import Details from "./Details";
-import Rejection from "./Rejection";
+import { UseAppContext } from "../../../../context/AppContext";
+import { NotInterested } from "@mui/icons-material";
+import { appApi } from "../../../../api";
+import { useState } from "react";
 
-function Index() {
-  const { modalRequest, setModalRequest } = UseRequestContext();
+const Rejection = () => {
+
+  const {
+    initRequestRejection,
+    selectedRequest,
+    setRequestList,
+    setModalRequest
+  } = UseRequestContext();
+
+  const { authUserToken } = UseAppContext();
+
+  const [rejection, setRejection] = useState(null);
+  const [commit, setCommit] = useState("");
+
+  const handleReject = async () => {
+
+    try {
+
+      const { data } = await appApi.post(
+        `/intranet/supplies/request/status/${selectedRequest.id}`,
+        {
+          statusId: 5,
+          rejectionId: rejection,
+          commit: commit
+        },
+        {
+          headers: { Authorization: `Bearer ${authUserToken}` },
+        }
+      );
+
+      setRequestList(prev =>
+        prev.map(req =>
+          req.id === selectedRequest.id
+            ? data.updatedRequest
+            : req
+        )
+      );
+
+      notifySuccess(data.msg);
+
+      setModalRequest({ show: false });
+
+    } catch (error) {
+
+      notifyError(
+        error?.response?.data?.msg || "Error al rechazar la solicitud"
+      );
+
+    }
+  };
 
   return (
-    <>
-      <div>
-        <Routes>
-          <Route path="/" element={<Request />} />
-          <Route path="/crear" element={<Create />} />
-          <Route path="/detalles" element={<Details />}/>
-          <Route path="/rechazar" element={<Rejection />} />
-        </Routes>
-      </div>
-      <Modal infoModal={modalRequest} setInfoModal={setModalRequest} />
-    </>
-  );
-}
+    <Card>
+      <div className="space-y-6">
 
-export default Index;
+        <div className="flex flex-col items-center gap-2">
+          <h3 className="font-semibold text-gray-700 uppercase">
+            Rechazo de insumo
+          </h3>
+          <hr className="w-full" />
+        </div>
+
+        <MUIAutocomplete
+          required
+          title="Motivo de rechazo"
+          options={initRequestRejection}
+          value={rejection}
+          handleChange={({ value }) => setRejection(value)}
+        />
+
+        <textarea
+          className="w-full border border-gray-300 p-2 rounded mb-2 focus:border-blue-500 outline-none"
+          value={commit}
+          onChange={(event) => { setCommit(event.target.value) }}
+        />
+
+        <div className="flex justify-end">
+          <Button
+            variant="contained"
+            size="small"
+            text="Rechazar"
+            startIcon={<NotInterested sx={{ fontSize: 16 }} />}
+            onClick={handleReject}
+            disabled={!rejection || !commit.trim()}
+          />
+        </div>
+
+      </div>
+    </Card>
+  );
+};
+
+export default Rejection;
