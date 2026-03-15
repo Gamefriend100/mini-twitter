@@ -1,51 +1,17 @@
-import { Delete } from "@mui/icons-material";
-import { IconButton } from "@mui/material";
-import { UseRequestContext } from "../../../../context/safety/kit/request/RequestContext";
-import { NotificationStructure } from "../../../shared";
+const safSupplies = require('./supply.routes');
+const safCategorySupplies = require('./category-supplies.routes');
+const safKit = require('./kit.routes');
+const safRequest = require('./request/request.routes');
+const safRequestRejection = require('./request-rejection.routes');
+const safRequestStatus = require('./request-status.routes');
+const safBranchSupply = require('./branch/branch-supply.routes');
 
-const ItemSupplyRequest = ({ supplyRequest, readOnly }) => {
-  const { setModalRequest, setSelectedSupplies, selectedSupplies } = UseRequestContext();
-
-  const handleDelete = () => {
-    setSelectedSupplies(
-      selectedSupplies.filter((supply) => supply !== supplyRequest.value)
-    );
-  };
-
-  const showConfirmation = () => {
-    setModalRequest({
-      show: true,
-      children: (
-        <NotificationStructure
-          title="Eliminar Solicitud"
-          action={handleDelete}
-          onCancel={() => setModalRequest({ show: false })}
-        >
-          <p>Estas apunto de eliminar de tu solicitud</p>
-          <p className="font-semibold">{supplyRequest.label}</p>
-          <p>¿Deseas continuar con esta accion?</p>
-        </NotificationStructure>
-      )
-    });
-  };
-
-  return (
-    <div className="flex justify-between py-2 px-3 mb-2 border shadow-md">
-      <div>
-        <p>{supplyRequest.label}</p>
-        <p className="text-xs font-semibold">{supplyRequest?.category?.name}</p>
-      </div>
-
-      {!readOnly && (
-        <IconButton
-          onClick={showConfirmation}
-          disabled={selectedSupplies.length === 1}
-        >
-          <Delete fontSize="small" sx={{ "&:hover": { color: "#ef4444" } }} />
-        </IconButton>
-      )}
-    </div>
-  );
+module.exports = {
+  safSupplies,
+  safCategorySupplies,
+  safKit,
+  safRequest,
+  safRequestRejection,
+  safRequestStatus,
+  safBranchSupply
 };
-
-export default ItemSupplyRequest;
