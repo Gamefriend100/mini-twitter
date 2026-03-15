@@ -1,217 +1,57 @@
-import { BarCard, Button, DropdownMenu, notifyError, notifySuccess, TitleCard } from "../../../../components/shared";
-import ItemSupplyRequest from "../../../../components/safety/kit/request/ItemSupplyRequest";
 import { UseRequestContext } from "../../../../context/safety/kit/request/RequestContext";
-import { UseKitContext } from "../../../../context/safety/kit/KitContext";
-import { UseAppContext } from "../../../../context/AppContext";
-import { AddCircle, Save, Send } from "@mui/icons-material";
-import { useNavigate } from "react-router-dom";
-import { appApi } from "../../../../api";
-import { useEffect } from "react";
-import Form from "./Form";
+import { UseKitContext } from "../../../../context/safety/kit/KitContext"
+import { Button, MUIAutocomplete } from "../../../../components/shared"
+import { AddCircle } from "@mui/icons-material";
+import { useEffect, useState } from "react";
 
-const url = "/seguridad/botiquin/solicitudes";
+const Form = () => {
+    const { supplies, initCategories } = UseKitContext();
+    const { selectedSupplies, addSupply, setModalRequest } = UseRequestContext();
+    const [selectedSupply, setSelectedSupply,] = useState(null);
+    const [selectedCategory, setSelectedCategory] = useState(null);
+    const [currentSupplies, setCurrentSupplies] = useState([])
 
-const Details = () => {
-
-  const {
-    selectedRequest,
-    selectedSupplies,
-    setSelectedSupplies,
-    setModalRequest,
-    setRequestList,
-    setSelectedRequest,
-    initSuppliesByRequestId,
-    isFetchingSuppliesByRequestId,
-    isSuccessSuppliesByRequestId
-  } = UseRequestContext();
-
-  const { authUserToken, hasRole } = UseAppContext();
-  const { supplies } = UseKitContext();
-  const goTo = useNavigate();
-
-  const isViewMode = selectedRequest?.viewOnly === true;
-  const isTHView = isViewMode && hasRole(["TALENTO HUMANO"]);
-
-  useEffect(() => {
-
-    if (!selectedRequest) {
-      goTo(url);
-    }
-  }, [selectedRequest]);
-
-  useEffect(() => {
-
-    if (!isFetchingSuppliesByRequestId && isSuccessSuppliesByRequestId) {
-      const requestIds = initSuppliesByRequestId.map(
-        rs => rs.supply.id
-      );
-      setSelectedSupplies(requestIds);
-    }
-  }, [initSuppliesByRequestId]);
-
-  const handleSubmit = async () => {
-
-    try {
-
-      const payload = {
-        supplies: selectedSupplies
-      };
-
-      const { data } = await appApi.put(
-        `/intranet/supplies/request/update/${selectedRequest.id}`,
-        payload,
-        {
-          headers: { Authorization: `Bearer ${authUserToken}` }
-        }
-      );
-
-      setRequestList(prev =>
-        prev.map(req =>
-          req.id === selectedRequest.id
-            ? data.updatedRequest
-            : req
+    useEffect(() => {
+        setCurrentSupplies(
+            supplies?.filter(supply => supply.categoryId === selectedCategory)
+                .filter(supply => !selectedSupplies.includes(supply.value))
         )
-      );
+    }, [selectedCategory]);
 
-      setSelectedRequest(data.updatedRequest);
+    return (
+        <div className="p-8 space-y-6">
+            <div className="flex flex-col items-center gap-2">
+                <h3 className="font-semibold text-gray-700 uppercase">Selecciona los insumos a solicitar</h3>
+                <hr className="w-full" />
+            </div>
 
-      const newSupplies = data.updatedRequest.requestSupplies.map(
-        rs => rs.supply.value
-      );
-
-      setSelectedSupplies(newSupplies);
-
-      notifySuccess(data.msg);
-
-      setSelectedSupplies([]);
-      setSelectedRequest(null);
-
-      goTo(url);
-
-    } catch (error) {
-
-      notifyError(
-        error?.response?.data?.msg || "Error al actualizar la solicitud"
-      );
-    }
-  };
-
-  const handleSend = async () => {
-
-    try {
-
-      const { data } = await appApi.post(
-        `/intranet/supplies/request/status/${selectedRequest.id}`,
-        {
-          statusId: 4
-        },
-        {
-          headers: { Authorization: `Bearer ${authUserToken}` }
-        }
-      );
-
-      setRequestList(prev =>
-        prev.map(req =>
-          req.id === selectedRequest.id
-            ? data.updatedRequest
-            : req
-        )
-      );
-
-      setSelectedRequest(null);
-
-      notifySuccess(data.msg);
-
-      goTo(url);
-
-    } catch (error) {
-
-      notifyError(
-        error?.response?.data?.msg || "Error al enviar la solicitud"
-      );
-
-    }
-
-  };
-
-  const handleClick = () => {
-    setModalRequest({ show: true, children: <Form /> })
-  };
-
-  const actionsMenu = [
-    {
-      name: "Guardar",
-      icon: <Save fontSize="small" />,
-      action: handleSubmit,
-    },
-    {
-      name: "Enviar",
-      icon: <Send fontSize="small" />,
-      action: handleSend,
-    },
-  ];
-
-  return (
-    <div className="space-y-6">
-
-      <TitleCard
-        title={isViewMode ? "INSUMOS SOLICITADOS" : "EDITAR SOLICITUD"}
-        desc={
-          isTHView ? (
-            <span className="text-xs">
-              Lista de insumos solicitados por el usuario
-            </span>
-          ) : (
-            <span className="flex flex-col text-xs">
-              <span>{selectedRequest?.user?.fullName}</span>
-              <span>{selectedRequest?.branch?.name}</span>
-            </span>
-          )
-        }
-        url={url}
-      >
-        {!isViewMode && (
-          <DropdownMenu
-            options={actionsMenu}
-          />
-        )}
-
-      </TitleCard>
-
-      <div>
-        <BarCard
-          noPadding
-          buttons={
-            !isViewMode && (
-              <Button
-                variant="contained"
-                size="small"
-                text="Agregar Insumo"
-                startIcon={<AddCircle sx={{ fontSize: 16 }} />}
-                onClick={handleClick}
-              />
-            )
-          }
-        >
-
-          <div className="p-10">
-            {supplies
-              ?.filter(supply => selectedSupplies.includes(supply.value))
-              .map(supply => (
-                <ItemSupplyRequest
-                  key={supply.value}
-                  supplyRequest={supply}
-                  readOnly={isViewMode}
+            <MUIAutocomplete
+                required
+                title="Categoria"
+                options={initCategories ?? []}
+                value={selectedCategory}
+                handleChange={({ value }) => setSelectedCategory(value)}
+            />
+            <MUIAutocomplete
+                required
+                title="Insumo"
+                options={currentSupplies}
+                disabled={!selectedCategory}
+                value={selectedSupply}
+                handleChange={({ value }) => setSelectedSupply(value)}
+            />
+            <div className="flex justify-end">
+                <Button
+                    text="Agregar"
+                    icon={<AddCircle fontSize="small" />}
+                    disabled={!selectedSupply}
+                    action={() => {
+                        addSupply(selectedSupply); setModalRequest({ show: false });
+                    }}
                 />
-              ))
-            }
-          </div>
+            </div>
+        </div>
+    )
+}
 
-        </BarCard>
-      </div>
-
-    </div>
-  );
-};
-
-export default Details;
+export default Form
