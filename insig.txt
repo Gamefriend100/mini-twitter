@@ -1,27 +1,41 @@
-import { UseRequestContext } from "../../../../context/safety/kit/request/RequestContext";
-import { Modal } from "../../../../components/shared";
-import { Routes, Route } from "react-router-dom";
-import Request from './Request';
-import Create from "./Create";
-import Details from "./Details";
-import Rejection from "./Rejection";
+import { Button, TitleCard } from "../../../../components/shared";
+import { AddCircle, FactCheck } from "@mui/icons-material";
+import { useNavigate } from "react-router-dom";
+import { UseAppContext } from "../../../../context/AppContext";
+import Table from "./Table";
 
-function Index() {
-  const { modalRequest, setModalRequest } = UseRequestContext();
+const Index = () => {
+  const goTo = useNavigate();
+  const { authUser } = UseAppContext();
+  console.log("authUser", authUser);
+
+  const role = authUser?.user?.apps?.[0]?.role;
+  const description =
+    role === "SUCURSAL"
+      ? "Gestión de mis solicitudes"
+      : "Gestión de solicitudes de botiquines por sucursal";
 
   return (
-    <>
-      <div>
-        <Routes>
-          <Route path="/" element={<Request />} />
-          <Route path="/crear" element={<Create />} />
-          <Route path="/detalles" element={<Details />}/>
-          <Route path="/rechazar" element={<Rejection />} />
-        </Routes>
-      </div>
-      <Modal infoModal={modalRequest} setInfoModal={setModalRequest} />
-    </>
+    <div className="space-y-6">
+      <TitleCard
+        title="SOLICITUDES"
+        desc={description}
+        icon={<FactCheck />}
+      >
+        {role !== "TALENTO HUMANO" && (
+          <Button
+            variant="contained"
+            size="small"
+            text={"Crear Solicitud"}
+            startIcon={<AddCircle sx={{ fontSize: 16 }} />}
+            onClick={() => goTo("/seguridad/botiquin/solicitudes/crear")}
+          />
+        )}
+      </TitleCard>
+
+      <Table />
+    </div>
   );
-}
+};
 
 export default Index;
