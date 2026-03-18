@@ -1,41 +1,77 @@
-import { Button, TitleCard } from "../../../../components/shared";
-import { AddCircle, FactCheck } from "@mui/icons-material";
-import { useNavigate } from "react-router-dom";
-import { UseAppContext } from "../../../../context/AppContext";
-import Table from "./Table";
+const changeRequestStatus = async (req, res) => {
+    const { id } = req.params;
+    const { statusId, rejectionId = null, commit = null } = req.body;
 
-const Index = () => {
-  const goTo = useNavigate();
-  const { authUser } = UseAppContext();
-  console.log("authUser", authUser);
+    try {
 
-  const role = authUser?.user?.apps?.[0]?.role;
-  const description =
-    role === "SUCURSAL"
-      ? "Gestión de mis solicitudes"
-      : "Gestión de solicitudes de botiquines por sucursal";
+        const request = await db.SafRequest.findByPk(id);
 
-  return (
-    <div className="space-y-6">
-      <TitleCard
-        title="SOLICITUDES"
-        desc={description}
-        icon={<FactCheck />}
-      >
-        {role !== "TALENTO HUMANO" && (
-          <Button
-            variant="contained"
-            size="small"
-            text={"Crear Solicitud"}
-            startIcon={<AddCircle sx={{ fontSize: 16 }} />}
-            onClick={() => goTo("/seguridad/botiquin/solicitudes/crear")}
-          />
-        )}
-      </TitleCard>
+        if (!request) {
+            return res.status(404).json({
+                msg: "Solicitud no encontrada"
+            });
+        }
 
-      <Table />
-    </div>
-  );
+        // 🔹 Si es rechazo
+        if (statusId === 5) {
+            request.rejectionId = rejectionId;
+            request.rejectionReason = clearString(commit);
+        }
+
+        // 🔹 Si pasa a entregado (6), crear kits
+        if (statusId === 6) {
+
+            const supplies = await db.SafRequestSupply.findAll({
+                where: { requestId: request.id }
+            });
+
+            const kits = supplies.map(s => ({
+                supplyId: s.supplyId,
+                branchId: request.branchId,
+                quantity: 0
+            }));
+
+            await db.SafKit.bulkCreate(kits);
+        }
+
+        // 🔹 Actualizar estado directamente
+        request.statusId = statusId;
+
+        await request.save();
+
+        await request.reload({
+            include: [
+                {
+                    model: db.User,
+                    as: 'user',
+                    attributes: ["associateNumber", "fullName"]
+                },
+                {
+                    model: db.Branch,
+                    as: 'branch',
+                    attributes: ["id", "name"]
+                },
+                {
+                    model: db.SafRequestStatus,
+                    as: 'status',
+                    attributes: ["id", "name"]
+                },
+                {
+                    model: db.SafRequestRejection,
+                    as: 'rejection',
+                    attributes: ["id", "name"]
+                }
+            ]
+        });
+
+        return res.status(200).json({
+            msg: "Solicitud actualizada correctamente",
+            updatedRequest: request
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            msg: error.message
+        });
+    }
 };
-
-export default Index;
