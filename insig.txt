@@ -1,45 +1,83 @@
-import { Card } from "../../../../components/shared";
-import { UseRequestContext } from "../../../../context/safety/kit/request/RequestContext";
+const updateRequest = async (req, res) => {
+    const { id } = req.params;
+    const { supplies } = req.body;
 
-const RejectionDetails = () => {
-  const { selectedRequest } = UseRequestContext();
+    try {
+        const request = await db.SafRequest.findByPk(id);
 
-  return (
-    <Card>
-      <div className="p-6 space-y-6">
+        if (!request) {
+            return res.status(404).json({
+                msg: "Solicitud no encontrada"
+            });
+        }
 
-        <div className="flex flex-col gap-2 border-b pb-3">
-          <h2 className="text-xl font-bold text-gray-800 uppercase tracking-wide">
-            Detalles del rechazo
-          </h2>
-          <p className="text-sm text-gray-500">
-            Información sobre la solicitud rechazada
-          </p>
-        </div>
+        const currentSupplies = await db.SafRequestSupply.findAll({
+            where: { requestId: id }
+        });
 
-        <div className="bg-gray-50 p-4 rounded-xl border">
-          <h3 className="text-sm font-semibold text-gray-600 uppercase mb-2">
-            Motivo de rechazo
-          </h3>
+        const currentMap = new Map(
+            currentSupplies.map(s => [s.supplyId, s])
+        );
 
-          <p className="text-base text-gray-800 font-medium">
-            {selectedRequest?.rejection?.name || "Sin motivo registrado"}
-          </p>
-        </div>
+        for (const supplyId of supplies) {
 
-        <div className="bg-gray-50 p-4 rounded-xl border">
-          <h3 className="text-sm font-semibold text-gray-600 uppercase mb-2">
-            Descripción
-          </h3>
+            const existing = currentMap.get(supplyId);
 
-          <p className="text-gray-700 leading-relaxed">
-            {selectedRequest?.rejectionReason || "Sin descripción"}
-          </p>
-        </div>
+            if (!existing) {
+                
+                await db.SafRequestSupply.create({
+                    requestId: id,
+                    supplyId
+                });
+            }
+        }
+        await request.reload({
+            include: [
+                {
+                    model: db.User,
+                    as: 'user',
+                    attributes: ["associateNumber", "fullName"]
+                },
+                {
+                    model: db.Branch,
+                    as: 'branch',
+                    attributes: ["id", "name"]
+                },
+                {
+                    model: db.SafRequestStatus,
+                    as: 'status',
+                    attributes: ["id", "name"]
+                },
+                {
+                    model: db.SafRequestRejection,
+                    as: 'rejection',
+                    attributes: ["id", "name"]
+                },
+                {
+                    model: db.SafRequestSupply,
+                    as: 'requestSupplies',
+                    include: [
+                        {
+                            model: db.SafSupply,
+                            as: 'supply',
+                            attributes: [
+                                ["id", "value"],
+                                ["name", "label"]
+                            ]
+                        }
+                    ]
+                }
+            ]
+        });
 
-      </div>
-    </Card>
-  );
+        return res.status(200).json({
+            msg: "Solicitud actualizada correctamente",
+            updatedRequest: request
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            msg: error.message
+        });
+    }
 };
-
-export default RejectionDetails;
