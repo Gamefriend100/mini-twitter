@@ -1,83 +1,159 @@
-const updateRequest = async (req, res) => {
-    const { id } = req.params;
-    const { supplies } = req.body;
+import { createContext, useContext, useEffect, useState } from "react";
+import { useGetInspections } from "../../../../hooks/safety/inspections";
+import { UseAppContext } from "../../../AppContext";
+import { useForm } from "../../../../hooks/useForm";
+import { UseInspectionContext } from "../InspectionsContext";
 
-    try {
-        const request = await db.SafRequest.findByPk(id);
+const WalkthroughContext = createContext();
 
-        if (!request) {
-            return res.status(404).json({
-                msg: "Solicitud no encontrada"
-            });
+export const UseWalkthroughContext = () => {
+    return useContext(WalkthroughContext);
+};
+
+export const WalkthroughProvider = ({ children }) => {
+    const { authUserToken, branches } = UseAppContext();
+    const { evaluations } = UseInspectionContext();
+    const [errors, setErrors] = useState([]);
+    const [selectedEvaluations, setSelectedEvaluations] = useState([]);
+    const [selectedBranches, setSelectedBranches] = useState([]);
+    const [zones, setZones] = useState([
+        { id: 0, name: "TODAS", checked: false },
+        { id: 1, name: "ZONA 1", checked: false },
+        { id: 2, name: "ZONA 2", checked: false },
+        { id: 3, name: "ZONA 3", checked: false },
+    ]);
+
+    const { formState, handleInputChange } = useForm({
+        description: "",
+        dueDate: ""
+    });
+
+    const {
+        data: inspections,
+        isFetching: isFetchingInspections,
+    } = useGetInspections(authUserToken).inspections;
+
+    const addRemoveEvaluation = (id) => {
+        const existId = selectedEvaluations.find(item => item == id);
+
+        if (!existId) {
+            setSelectedEvaluations([...selectedEvaluations, id]);
+        } else {
+            setSelectedEvaluations(selectedEvaluations.filter(evaluationId => evaluationId !== id));
         }
+    }
 
-        const currentSupplies = await db.SafRequestSupply.findAll({
-            where: { requestId: id }
-        });
+    const addRemoveBranch = (id) => {
+        const existId = selectedBranches.find(item => item == id);
 
-        const currentMap = new Map(
-            currentSupplies.map(s => [s.supplyId, s])
+        if (!existId) {
+            setSelectedBranches([...selectedBranches, id]);
+        } else {
+            setSelectedBranches(selectedBranches.filter(evaluationId => evaluationId !== id));
+        }
+    }
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        console.log("Enviando", { ...formState, evaluations: selectedEvaluations, branches: selectedBranches })
+    };
+
+    const setBranchesByZone = (zoneId) => {
+        const updatedZones = zones.map(zone =>
+            zone.id === zoneId
+                ? { ...zone, checked: !zone.checked }
+                : zone
         );
 
-        for (const supplyId of supplies) {
+        setZones(updatedZones);
 
-            const existing = currentMap.get(supplyId);
+        const zoneSelected = updatedZones.find(z => z.id === zoneId);
 
-            if (!existing) {
-                
-                await db.SafRequestSupply.create({
-                    requestId: id,
-                    supplyId
-                });
+        if (zoneId === 0) {
+            if (zoneSelected.checked) {
+                const allBranches = branches.map(b => b.value);
+                setSelectedBranches(allBranches);
+            } else {
+                setSelectedBranches([]);
             }
+            return;
         }
-        await request.reload({
-            include: [
-                {
-                    model: db.User,
-                    as: 'user',
-                    attributes: ["associateNumber", "fullName"]
-                },
-                {
-                    model: db.Branch,
-                    as: 'branch',
-                    attributes: ["id", "name"]
-                },
-                {
-                    model: db.SafRequestStatus,
-                    as: 'status',
-                    attributes: ["id", "name"]
-                },
-                {
-                    model: db.SafRequestRejection,
-                    as: 'rejection',
-                    attributes: ["id", "name"]
-                },
-                {
-                    model: db.SafRequestSupply,
-                    as: 'requestSupplies',
-                    include: [
-                        {
-                            model: db.SafSupply,
-                            as: 'supply',
-                            attributes: [
-                                ["id", "value"],
-                                ["name", "label"]
-                            ]
-                        }
-                    ]
-                }
-            ]
+
+        const branchesByZone = branches
+            .filter(branch => branch.zoneId === zoneId)
+            .map(branch => branch.value);
+
+        if (zoneSelected.checked) {
+            setSelectedBranches(prev => [
+                ...new Set([...prev, ...branchesByZone])
+            ]);
+        } else {
+            setSelectedBranches(prev =>
+                prev.filter(id => !branchesByZone.includes(id))
+            );
+        }
+    };
+
+    useEffect(() => {
+        if (!branches.length) return;
+
+        const updatedZones = zones.map(zone => {
+
+            if (zone.id === 0) {
+                const allSelected = branches.every(branch =>
+                    selectedBranches.includes(branch.value)
+                );
+
+                return { ...zone, checked: allSelected };
+            }
+
+            const branchesByZone = branches.filter(b => b.zoneId === zone.id);
+
+            if (!branchesByZone.length) return zone;
+
+            const allSelected = branchesByZone.every(branch =>
+                selectedBranches.includes(branch.value)
+            );
+
+            return { ...zone, checked: allSelected };
         });
 
-        return res.status(200).json({
-            msg: "Solicitud actualizada correctamente",
-            updatedRequest: request
-        });
+        setZones(updatedZones);
 
-    } catch (error) {
-        return res.status(500).json({
-            msg: error.message
-        });
+    }, [selectedBranches, branches]);
+
+    const toggleAllEvaluations = () => {
+    if (selectedEvaluations.length === evaluations.length) {
+        setSelectedEvaluations([]);
+    } else {
+        const allIds = evaluations.map(e => e.id);
+        setSelectedEvaluations(allIds);
     }
+};
+
+    return (
+        <WalkthroughContext.Provider
+            value={{
+                addRemoveBranch,
+                addRemoveEvaluation,
+                errors,
+                formState,
+                handleInputChange,
+                handleSubmit,
+                inspections,
+                isFetchingInspections,
+                selectedBranches,
+                selectedEvaluations,
+                setBranchesByZone,
+                setErrors,
+                setSelectedBranches,
+                setSelectedEvaluations,
+                zones,
+                branches,
+                toggleAllEvaluations
+            }}
+        >
+            {children}
+        </WalkthroughContext.Provider>
+    );
 };
